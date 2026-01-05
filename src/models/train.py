@@ -57,13 +57,20 @@ def train_model(data_path: str, base_config_path: str,
 
     tracking_uri, uri_source = get_mlflow_tracking_uri(config, mlflow_tracking_uri)
 
+    experiment_name = config['experiment']['name']
+
+    if tracking_uri == "databricks":
+        user_email = os.environ.get('DATABRICKS_USER', 'github-actions@pipeline.com')
+        experiment_name = f"/Users/{user_email}/{experiment_name}"
+        print(f"Using Databricks experiment path: {experiment_name}")
+
     mlflow.set_tracking_uri(tracking_uri)
-    mlflow.set_experiment(config['experiment']['name'])
+    mlflow.set_experiment(experiment_name)
 
     print("="*70)
     print("RANDOM FOREST TRAINING WITH SMOTE")
     print("="*70)
-    print(f"Experiment: {config['experiment']['name']}")
+    print(f"Experiment: {experiment_name}")
     print(f"Description: {config['experiment']['description']}")
     print(f"Model Type: {config['model']['type']}")
     print(f"Imbalance Method: {config['imbalance']['method']}")
@@ -154,7 +161,7 @@ def train_model(data_path: str, base_config_path: str,
         print(f"  MLflow Run ID: {run.info.run_id}")
 
         mlflow.log_params({
-            'experiment_name': config['experiment']['name'],
+            'experiment_name': experiment_name,
             'model_type': config['model']['type'],
             'imbalance_method': config['imbalance']['method'],
             'sample_size': config['data'].get('sample_size', 'full'),
