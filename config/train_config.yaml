@@ -1,0 +1,85 @@
+experiment:
+  name: 'fraud-detection-random-forest'
+  description: 'Credit card fraud detection using Random Forest'
+  tags:
+    model_type: 'random_forest'
+    imbalance_method: 'smote'
+    version: '1.0'
+
+data:
+  source: 's3://fraud-detection-sv-bucket/data/creditcard.csv'
+  sample_size: null
+  random_state: 42
+
+  splits:
+    test_size: 0.2
+    validation_size: 0.1
+    stratify: true
+
+model:
+  type: 'random_forest'
+
+  params:
+    n_estimators: 300
+    max_depth: 15
+    min_samples_split: 10
+    min_samples_leaf: 5
+    max_features: 'sqrt'
+    class_weight: null
+    bootstrap: true
+    oob_score: true
+    n_jobs: -1
+    max_samples: null
+
+  training:
+    early_stopping_rounds: null
+    eval_metric: 'roc_auc'
+    verbose: 1
+
+features:
+  time_features:
+    enabled: true
+    hour_of_day: true
+    day_period: true
+    time_since_start: true
+
+  amount_features:
+    enabled: true
+    log_transform: true
+    binning: false
+    standardize: true
+
+imbalance:
+  method: 'smote'
+
+  smote:
+    sampling_strategy: 0.5
+    k_neighbors: 5
+    random_state: 42
+
+  class_weight: null
+  undersampling: null
+
+quality_gates:
+  metrics:
+    recall:
+      threshold: 0.90
+      operator: '>='
+    precision:
+      threshold: 0.85
+      operator: '>='
+    pr_auc:
+      threshold: 0.95
+      operator: '>='
+    f1:
+      threshold: 0.87
+      operator: '>='
+
+  experimental_mode: false
+
+mlflow:
+  log_models: true
+  log_artifacts: true
+  log_plots: true
+  log_feature_importance: true
+  auto_log: false
