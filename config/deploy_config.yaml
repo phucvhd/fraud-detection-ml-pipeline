@@ -1,0 +1,42 @@
+staging:
+  endpoint_name: 'fraud-detection-staging'
+  instance_type: 'ml.t2.medium'
+  instance_count: 1
+
+  model:
+    framework: 'sklearn'
+    framework_version: '1.0-1'
+
+  monitoring:
+    data_capture_enabled: true
+    sampling_percentage: 100
+
+  auto_scaling:
+    enabled: false
+
+production:
+  endpoint_name: 'fraud-detection-prod'
+  instance_type: 'ml.m5.large'
+  instance_count: 2
+
+  deployment_strategy:
+    type: 'blue_green'
+    blue_green:
+      initial_traffic_percentage: 10
+      wait_duration_minutes: 10
+      auto_rollback_enabled: true
+
+  monitoring:
+    data_capture_enabled: true
+    sampling_percentage: 25
+
+    cloudwatch_alarms:
+      model_latency_ms: 100
+      model_error_rate: 0.01
+
+  auto_scaling:
+    enabled: true
+    min_instances: 2
+    max_instances: 5
+    target_metric: 'InvocationsPerInstance'
+    target_value: 1000
