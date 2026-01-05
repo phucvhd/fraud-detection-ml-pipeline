@@ -161,7 +161,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Package model for SageMaker')
     parser.add_argument('--mlflow-run-id', required=True, help='MLflow run ID')
     parser.add_argument('--output-file', required=True, help='Output tar.gz file')
+    parser.add_argument('--mlflow-tracking-uri', required=False, default=None,
+                        help='MLflow tracking URI (use "databricks" for Databricks)')
 
     args = parser.parse_args()
 
-    package_model(args.mlflow_run_id, args.output_file)
+    package_model(args.mlflow_run_id, args.output_file, args.mlflow_tracking_uri)
