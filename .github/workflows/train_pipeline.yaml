@@ -234,8 +234,7 @@ jobs:
         python src/models/train.py \
           --data-path ./data/creditcard.csv \
           --base-config config/train_config.yaml \
-          --override-config config/override_config.yaml \
-          --mlflow-tracking-uri ${{ env.MLFLOW_TRACKING_URI }}
+          --override-config config/override_config.yaml 
         
         RUN_ID=$(cat run_id.txt)
         echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
