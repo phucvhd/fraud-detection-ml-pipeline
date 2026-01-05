@@ -11,6 +11,45 @@ import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 from src.utils.config_manager import load_config
 
+def setup_databricks_auth():
+    databricks_host = os.environ.get('DATABRICKS_HOST')
+    databricks_token = os.environ.get('DATABRICKS_TOKEN')
+
+    if databricks_host and databricks_token:
+        os.environ['DATABRICKS_HOST'] = databricks_host
+        os.environ['DATABRICKS_TOKEN'] = databricks_token
+
+        print(f"Databricks authentication configured")
+        print(f"  Host: {databricks_host}")
+        return True
+
+    return False
+
+
+def get_mlflow_tracking_uri(config: dict, cli_uri: str = None) -> tuple:
+    if cli_uri and cli_uri.lower() == 'databricks':
+        if setup_databricks_auth():
+            return "databricks", "Databricks workspace"
+        else:
+            print("WARNING: Databricks URI requested but credentials not found")
+            print("Falling back to local tracking")
+            return "file:./mlruns", "default (local)"
+
+    if cli_uri and cli_uri.strip():
+        return cli_uri, "command line argument"
+
+    if os.environ.get('MLFLOW_TRACKING_URI'):
+        uri = os.environ.get('MLFLOW_TRACKING_URI')
+        if uri.lower() == 'databricks':
+            if setup_databricks_auth():
+                return "databricks", "environment variable (Databricks)"
+        return uri, "environment variable"
+
+    if config.get('mlflow', {}).get('tracking_uri'):
+        return config['mlflow']['tracking_uri'], "config file"
+
+    return "file:./mlruns", "default (local)"
+
 def train_model(data_path: str, base_config_path: str,
                 override_config_path: str, mlflow_tracking_uri: str = None):
 
@@ -200,12 +239,15 @@ def train_model(data_path: str, base_config_path: str,
 
         return run.info.run_id
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train Random Forest with SMOTE')
     parser.add_argument('--data-path', required=True, help='Path to training data CSV')
     parser.add_argument('--base-config', required=True, help='Path to base config YAML')
     parser.add_argument('--override-config', required=False, help='Path to override config YAML')
-    parser.add_argument('--mlflow-tracking-uri', required=False, default=None, help='MLflow tracking URI (defaults to ./mlruns if not provided)')
+    parser.add_argument('--mlflow-tracking-uri', required=False, default=None,
+                        help='MLflow tracking URI (use "databricks" for Databricks)')
+
     args = parser.parse_args()
 
     train_model(

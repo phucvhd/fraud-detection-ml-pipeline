@@ -157,6 +157,7 @@ jobs:
       run: |
         pip install --upgrade pip
         pip install -r requirements.txt
+        pip install databricks-cli
 
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v2
@@ -171,6 +172,12 @@ jobs:
         mkdir -p data
         aws s3 cp s3://${{ env.S3_DATA_BUCKET }}/data/creditcard.csv ./data/creditcard.csv
         echo "Dataset downloaded ($(du -h ./data/creditcard.csv | cut -f1))"
+
+    - name: Configure Databricks authentication
+      run: |
+        echo "Setting up Databricks credentials..."
+        export DATABRICKS_HOST=${{ secrets.DATABRICKS_HOST }}
+        export DATABRICKS_TOKEN=${{ secrets.DATABRICKS_TOKEN }}
 
     - name: Prepare training configuration
       id: config
@@ -223,6 +230,9 @@ jobs:
 
     - name: Train model
       id: train
+      env:
+        DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+        DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
       run: |
         echo "Starting Random Forest training with SMOTE..."
         echo "Parameters:"
@@ -231,10 +241,13 @@ jobs:
         echo "  - Max Depth: ${{ github.event.inputs.max_depth || '15' }}"
         echo "  - SMOTE Ratio: ${{ github.event.inputs.smote_sampling_strategy || '0.5' }}"
         
+        MLFLOW_URI="databricks"
+        
         python src/models/train.py \
           --data-path ./data/creditcard.csv \
           --base-config config/train_config.yaml \
-          --override-config config/override_config.yaml 
+          --override-config config/override_config.yaml \
+          --mlflow-tracking-uri $MLFLOW_URI
         
         RUN_ID=$(cat run_id.txt)
         echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
