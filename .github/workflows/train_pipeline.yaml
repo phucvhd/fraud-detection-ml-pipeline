@@ -169,7 +169,7 @@ jobs:
       run: |
         echo "Downloading dataset from S3..."
         mkdir -p data
-        aws s3 cp s3://${{ env.S3_DATA_BUCKET }}/creditcard.csv ./data/creditcard.csv
+        aws s3 cp s3://${{ env.S3_DATA_BUCKET }}/data/creditcard.csv ./data/creditcard.csv
         echo "Dataset downloaded ($(du -h ./data/creditcard.csv | cut -f1))"
 
     - name: Prepare training configuration
@@ -234,8 +234,7 @@ jobs:
         python src/models/train.py \
           --data-path ./data/creditcard.csv \
           --base-config config/train_config.yaml \
-          --override-config config/override_config.yaml \
-          --mlflow-tracking-uri ${{ env.MLFLOW_TRACKING_URI }}
+          --override-config config/override_config.yaml 
         
         RUN_ID=$(cat run_id.txt)
         echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
