@@ -55,7 +55,9 @@ def train_model(data_path: str, base_config_path: str,
 
     config = load_config(base_config_path, override_config_path)
 
-    mlflow.set_tracking_uri(mlflow_tracking_uri)
+    tracking_uri, uri_source = get_mlflow_tracking_uri(config, mlflow_tracking_uri)
+
+    mlflow.set_tracking_uri(tracking_uri)
     mlflow.set_experiment(config['experiment']['name'])
 
     print("="*70)
@@ -65,6 +67,8 @@ def train_model(data_path: str, base_config_path: str,
     print(f"Description: {config['experiment']['description']}")
     print(f"Model Type: {config['model']['type']}")
     print(f"Imbalance Method: {config['imbalance']['method']}")
+    print(f"MLflow Tracking: {tracking_uri}")
+    print(f"  (from {uri_source})")
     print("="*70)
 
     print(f"\nLoading data from {data_path}...")
