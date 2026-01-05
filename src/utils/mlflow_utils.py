@@ -36,13 +36,16 @@ def get_mlflow_tracking_uri(mlflow_tracking_uri: str = None) -> str:
     return "file:./mlruns"
 
 def register_model(run_id: str, model_name: str, stage: str = "None", mlflow_tracking_uri: str = None):
-    print(f"Registering model from run {run_id}...")
-
     tracking_uri = get_mlflow_tracking_uri(mlflow_tracking_uri)
     mlflow.set_tracking_uri(tracking_uri)
 
+    if tracking_uri == "databricks":
+        mlflow.set_registry_uri("databricks")
+        print(f"Using legacy Databricks Workspace Model Registry")
+
     print(f"Registering model from run {run_id}...")
     print(f"  MLflow Tracking: {tracking_uri}")
+    print(f"  Model Name: {model_name}")
 
     client = MlflowClient()
 
