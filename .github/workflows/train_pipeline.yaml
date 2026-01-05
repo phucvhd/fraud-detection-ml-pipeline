@@ -256,8 +256,14 @@ jobs:
 
     - name: Evaluate model
       id: evaluate
+      env:
+        DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+        DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+        DATABRICKS_USER: ${{ secrets.DATABRICKS_USER }}
       run: |
         echo "Evaluating model performance..."
+        
+        MLFLOW_URI="databricks"
         
         python src/models/evaluate.py \
           --model-run-id ${{ steps.train.outputs.run_id }} \
@@ -265,7 +271,7 @@ jobs:
           --config config/train_config.yaml \
           --override-config config/override_config.yaml \
           --output metrics.json \
-          --mlflow-tracking-uri databricks
+          --mlflow-tracking-uri $MLFLOW_URI
         
         RECALL=$(jq -r '.recall' metrics.json)
         PRECISION=$(jq -r '.precision' metrics.json)
