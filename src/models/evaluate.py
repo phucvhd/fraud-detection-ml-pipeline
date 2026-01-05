@@ -17,24 +17,72 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 from src.utils.config_manager import load_config
 
 
+def setup_databricks_auth():
+    databricks_host = os.environ.get('DATABRICKS_HOST')
+    databricks_token = os.environ.get('DATABRICKS_TOKEN')
+
+    if databricks_host and databricks_token:
+        os.environ['DATABRICKS_HOST'] = databricks_host
+        os.environ['DATABRICKS_TOKEN'] = databricks_token
+        print(f"Databricks authentication configured")
+        print(f"  Host: {databricks_host}")
+        return True
+
+    return False
+
+
+def get_mlflow_tracking_uri(config: dict, cli_uri: str = None) -> tuple:
+    if cli_uri and cli_uri.lower() == 'databricks':
+        if setup_databricks_auth():
+            return "databricks", "Databricks workspace"
+        else:
+            print("WARNING: Databricks URI requested but credentials not found")
+            return "file:./mlruns", "default (local)"
+
+    if cli_uri and cli_uri.strip():
+        return cli_uri, "command line argument"
+
+    if os.environ.get('MLFLOW_TRACKING_URI'):
+        uri = os.environ.get('MLFLOW_TRACKING_URI')
+        if uri.lower() == 'databricks':
+            if setup_databricks_auth():
+                return "databricks", "environment variable (Databricks)"
+        return uri, "environment variable"
+
+    if config.get('mlflow', {}).get('tracking_uri'):
+        return config['mlflow']['tracking_uri'], "config file"
+
+    return "file:./mlruns", "default (local)"
+
 def evaluate_model(model_run_id: str, data_path: str,
                    base_config_path: str, override_config_path: str,
-                   output_path: str):
-    """Evaluate trained Random Forest model and check quality gates."""
-
+                   output_path: str, mlflow_tracking_uri: str = None):
     config = load_config(base_config_path, override_config_path)
+
+    tracking_uri, uri_source = get_mlflow_tracking_uri(config, mlflow_tracking_uri)
+    mlflow.set_tracking_uri(tracking_uri)
 
     print("=" * 70)
     print("MODEL EVALUATION")
     print("=" * 70)
     print(f"MLflow Run ID: {model_run_id}")
+    print(f"MLflow Tracking: {tracking_uri}")
+    print(f"  (from {uri_source})")
     print("=" * 70)
 
     print(f"\nLoading model from MLflow...")
     model_uri = f"runs:/{model_run_id}/model"
-    model = mlflow.sklearn.load_model(model_uri)
-    print(f"  Model loaded successfully")
-    print(f"  Model type: {type(model).__name__}")
+    try:
+        model = mlflow.sklearn.load_model(model_uri)
+        print(f"  Model loaded successfully")
+        print(f"  Model type: {type(model).__name__}")
+    except Exception as e:
+        print(f"  ERROR loading model: {e}")
+        print(f"\n  Troubleshooting:")
+        print(f"    - Check run ID is correct: {model_run_id}")
+        print(f"    - Check Databricks credentials are set")
+        print(f"    - Verify model was logged to MLflow")
+        raise
 
     print(f"\nLoading evaluation data...")
     df = pd.read_csv(data_path)
@@ -229,6 +277,8 @@ if __name__ == "__main__":
     parser.add_argument('--config', required=True, help='Path to base config')
     parser.add_argument('--override-config', required=False, help='Path to override config')
     parser.add_argument('--output', required=True, help='Output path for metrics JSON')
+    parser.add_argument('--mlflow-tracking-uri', required=False, default=None,
+                        help='MLflow tracking URI (use "databricks" for Databricks)')
 
     args = parser.parse_args()
 
@@ -237,5 +287,6 @@ if __name__ == "__main__":
         args.data_path,
         args.config,
         args.override_config,
-        args.output
+        args.output,
+        args.mlflow_tracking_uri
     )

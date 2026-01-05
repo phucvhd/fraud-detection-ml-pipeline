@@ -264,7 +264,8 @@ jobs:
           --data-path ./data/creditcard.csv \
           --config config/train_config.yaml \
           --override-config config/override_config.yaml \
-          --output metrics.json
+          --output metrics.json \
+          --mlflow-tracking-uri databricks
         
         RECALL=$(jq -r '.recall' metrics.json)
         PRECISION=$(jq -r '.precision' metrics.json)

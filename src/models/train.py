@@ -60,8 +60,8 @@ def train_model(data_path: str, base_config_path: str,
     experiment_name = config['experiment']['name']
 
     if tracking_uri == "databricks":
-        user_email = os.environ.get('DATABRICKS_USER', 'github-actions@pipeline.com')
-        experiment_name = f"/Users/{user_email}/{experiment_name}"
+        user_email = os.environ.get('DATABRICKS_USER')
+        experiment_name = f"/Users/{user_email}/fraud-detection/{experiment_name}"
         print(f"Using Databricks experiment path: {experiment_name}")
 
     mlflow.set_tracking_uri(tracking_uri)
