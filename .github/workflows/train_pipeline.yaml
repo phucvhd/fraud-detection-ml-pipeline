@@ -369,24 +369,24 @@ jobs:
         echo "model_uri=$MODEL_URI" >> $GITHUB_OUTPUT
         echo "Model packaged and uploaded to $MODEL_URI"
 
-    - name: Register model in MLflow
-      if: success()
-      env:
-        DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
-        DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
-        DATABRICKS_USER: ${{ secrets.DATABRICKS_USER }}
-      run: |
-        echo "Registering model in MLflow Model Registry..."
-        
-        MLFLOW_URI="databricks"
-        
-        python src/utils/mlflow_utils.py register-model \
-          --run-id ${{ steps.train.outputs.run_id }} \
-          --model-name "fraud-detection-rf-smote" \
-          --stage "Staging" \
-          --mlflow-tracking-uri $MLFLOW_URI
-        
-        echo "Model registered in MLflow"
+#    - name: Register model in MLflow
+#      if: success()
+#      env:
+#        DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+#        DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+#        DATABRICKS_USER: ${{ secrets.DATABRICKS_USER }}
+#      run: |
+#        echo "Registering model in MLflow Model Registry..."
+#
+#        MLFLOW_URI="databricks"
+#
+#        python src/utils/mlflow_utils.py register-model \
+#          --run-id ${{ steps.train.outputs.run_id }} \
+#          --model-name "fraud-detection-rf-smote" \
+#          --stage "Staging" \
+#          --mlflow-tracking-uri $MLFLOW_URI
+#
+#        echo "Model registered in MLflow"
 
     - name: Upload training artifacts
       if: always()
