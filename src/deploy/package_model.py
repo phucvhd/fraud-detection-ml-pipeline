@@ -1,11 +1,13 @@
 import argparse
 import os
+import sys
+
 import mlflow
 import tarfile
 import shutil
 import joblib
 from pathlib import Path
-
+sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 from src.utils.config_manager import get_mlflow_tracking_uri
 
 
