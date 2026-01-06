@@ -11,21 +11,71 @@ import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 from src.utils.config_manager import load_config
 
+def setup_databricks_auth():
+    databricks_host = os.environ.get('DATABRICKS_HOST')
+    databricks_token = os.environ.get('DATABRICKS_TOKEN')
+
+    if databricks_host and databricks_token:
+        os.environ['DATABRICKS_HOST'] = databricks_host
+        os.environ['DATABRICKS_TOKEN'] = databricks_token
+
+        print(f"Databricks authentication configured")
+        print(f"  Host: {databricks_host}")
+        return True
+
+    return False
+
+
+def get_mlflow_tracking_uri(config: dict, cli_uri: str = None) -> tuple:
+    if cli_uri and cli_uri.lower() == 'databricks':
+        if setup_databricks_auth():
+            return "databricks", "Databricks workspace"
+        else:
+            print("WARNING: Databricks URI requested but credentials not found")
+            print("Falling back to local tracking")
+            return "file:./mlruns", "default (local)"
+
+    if cli_uri and cli_uri.strip():
+        return cli_uri, "command line argument"
+
+    if os.environ.get('MLFLOW_TRACKING_URI'):
+        uri = os.environ.get('MLFLOW_TRACKING_URI')
+        if uri.lower() == 'databricks':
+            if setup_databricks_auth():
+                return "databricks", "environment variable (Databricks)"
+        return uri, "environment variable"
+
+    if config.get('mlflow', {}).get('tracking_uri'):
+        return config['mlflow']['tracking_uri'], "config file"
+
+    return "file:./mlruns", "default (local)"
+
 def train_model(data_path: str, base_config_path: str,
                 override_config_path: str, mlflow_tracking_uri: str = None):
 
     config = load_config(base_config_path, override_config_path)
 
-    mlflow.set_tracking_uri(mlflow_tracking_uri)
-    mlflow.set_experiment(config['experiment']['name'])
+    tracking_uri, uri_source = get_mlflow_tracking_uri(config, mlflow_tracking_uri)
+
+    experiment_name = config['experiment']['name']
+
+    if tracking_uri == "databricks":
+        user_email = os.environ.get('DATABRICKS_USER')
+        experiment_name = f"/Users/{user_email}/fraud-detection/{experiment_name}"
+        print(f"Using Databricks experiment path: {experiment_name}")
+
+    mlflow.set_tracking_uri(tracking_uri)
+    mlflow.set_experiment(experiment_name)
 
     print("="*70)
     print("RANDOM FOREST TRAINING WITH SMOTE")
     print("="*70)
-    print(f"Experiment: {config['experiment']['name']}")
+    print(f"Experiment: {experiment_name}")
     print(f"Description: {config['experiment']['description']}")
     print(f"Model Type: {config['model']['type']}")
     print(f"Imbalance Method: {config['imbalance']['method']}")
+    print(f"MLflow Tracking: {tracking_uri}")
+    print(f"  (from {uri_source})")
     print("="*70)
 
     print(f"\nLoading data from {data_path}...")
@@ -111,7 +161,7 @@ def train_model(data_path: str, base_config_path: str,
         print(f"  MLflow Run ID: {run.info.run_id}")
 
         mlflow.log_params({
-            'experiment_name': config['experiment']['name'],
+            'experiment_name': experiment_name,
             'model_type': config['model']['type'],
             'imbalance_method': config['imbalance']['method'],
             'sample_size': config['data'].get('sample_size', 'full'),
@@ -200,12 +250,15 @@ def train_model(data_path: str, base_config_path: str,
 
         return run.info.run_id
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train Random Forest with SMOTE')
     parser.add_argument('--data-path', required=True, help='Path to training data CSV')
     parser.add_argument('--base-config', required=True, help='Path to base config YAML')
     parser.add_argument('--override-config', required=False, help='Path to override config YAML')
-    parser.add_argument('--mlflow-tracking-uri', required=False, default=None, help='MLflow tracking URI (defaults to ./mlruns if not provided)')
+    parser.add_argument('--mlflow-tracking-uri', required=False, default=None,
+                        help='MLflow tracking URI (use "databricks" for Databricks)')
+
     args = parser.parse_args()
 
     train_model(

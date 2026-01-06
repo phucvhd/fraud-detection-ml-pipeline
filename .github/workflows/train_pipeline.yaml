@@ -157,6 +157,7 @@ jobs:
       run: |
         pip install --upgrade pip
         pip install -r requirements.txt
+        pip install databricks-cli
 
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v2
@@ -171,6 +172,12 @@ jobs:
         mkdir -p data
         aws s3 cp s3://${{ env.S3_DATA_BUCKET }}/data/creditcard.csv ./data/creditcard.csv
         echo "Dataset downloaded ($(du -h ./data/creditcard.csv | cut -f1))"
+
+    - name: Configure Databricks authentication
+      run: |
+        echo "Setting up Databricks credentials..."
+        export DATABRICKS_HOST=${{ secrets.DATABRICKS_HOST }}
+        export DATABRICKS_TOKEN=${{ secrets.DATABRICKS_TOKEN }}
 
     - name: Prepare training configuration
       id: config
@@ -223,6 +230,10 @@ jobs:
 
     - name: Train model
       id: train
+      env:
+        DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+        DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+        DATABRICKS_USER: ${{ secrets.DATABRICKS_USER }}
       run: |
         echo "Starting Random Forest training with SMOTE..."
         echo "Parameters:"
@@ -231,10 +242,13 @@ jobs:
         echo "  - Max Depth: ${{ github.event.inputs.max_depth || '15' }}"
         echo "  - SMOTE Ratio: ${{ github.event.inputs.smote_sampling_strategy || '0.5' }}"
         
+        MLFLOW_URI="databricks"
+        
         python src/models/train.py \
           --data-path ./data/creditcard.csv \
           --base-config config/train_config.yaml \
-          --override-config config/override_config.yaml 
+          --override-config config/override_config.yaml \
+          --mlflow-tracking-uri $MLFLOW_URI
         
         RUN_ID=$(cat run_id.txt)
         echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
@@ -242,15 +256,22 @@ jobs:
 
     - name: Evaluate model
       id: evaluate
+      env:
+        DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+        DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+        DATABRICKS_USER: ${{ secrets.DATABRICKS_USER }}
       run: |
         echo "Evaluating model performance..."
+        
+        MLFLOW_URI="databricks"
         
         python src/models/evaluate.py \
           --model-run-id ${{ steps.train.outputs.run_id }} \
           --data-path ./data/creditcard.csv \
           --config config/train_config.yaml \
           --override-config config/override_config.yaml \
-          --output metrics.json
+          --output metrics.json \
+          --mlflow-tracking-uri $MLFLOW_URI
         
         RECALL=$(jq -r '.recall' metrics.json)
         PRECISION=$(jq -r '.precision' metrics.json)
@@ -326,12 +347,19 @@ jobs:
     - name: Package model for SageMaker
       id: package
       if: success()
+      env:
+        DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+        DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+        DATABRICKS_USER: ${{ secrets.DATABRICKS_USER }}
       run: |
         echo "Packaging Random Forest model for SageMaker..."
         
+        MLFLOW_URI="databricks"
+
         python src/deploy/package_model.py \
           --mlflow-run-id ${{ steps.train.outputs.run_id }} \
-          --output-file model.tar.gz
+          --output-file model.tar.gz \
+          --mlflow-tracking-uri $MLFLOW_URI
         
         TIMESTAMP=$(date +%Y%m%d-%H%M%S)
         MODEL_URI="s3://${{ env.S3_MODEL_BUCKET }}/models/fraud-rf-smote-${TIMESTAMP}.tar.gz"
@@ -341,17 +369,24 @@ jobs:
         echo "model_uri=$MODEL_URI" >> $GITHUB_OUTPUT
         echo "Model packaged and uploaded to $MODEL_URI"
 
-    - name: Register model in MLflow
-      if: success()
-      run: |
-        echo "Registering model in MLflow Model Registry..."
-        
-        python src/utils/mlflow_utils.py register-model \
-          --run-id ${{ steps.train.outputs.run_id }} \
-          --model-name "fraud-detection-rf-smote" \
-          --stage "Staging"
-        
-        echo "Model registered in MLflow"
+#    - name: Register model in MLflow
+#      if: success()
+#      env:
+#        DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+#        DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+#        DATABRICKS_USER: ${{ secrets.DATABRICKS_USER }}
+#      run: |
+#        echo "Registering model in MLflow Model Registry..."
+#
+#        MLFLOW_URI="databricks"
+#
+#        python src/utils/mlflow_utils.py register-model \
+#          --run-id ${{ steps.train.outputs.run_id }} \
+#          --model-name "fraud-detection-rf-smote" \
+#          --stage "Staging" \
+#          --mlflow-tracking-uri $MLFLOW_URI
+#
+#        echo "Model registered in MLflow"
 
     - name: Upload training artifacts
       if: always()

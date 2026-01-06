@@ -7,8 +7,48 @@ import joblib
 from pathlib import Path
 
 
-def package_model(mlflow_run_id: str, output_file: str):
+def setup_databricks_auth():
+    databricks_host = os.environ.get('DATABRICKS_HOST')
+    databricks_token = os.environ.get('DATABRICKS_TOKEN')
+
+    if databricks_host and databricks_token:
+        os.environ['DATABRICKS_HOST'] = databricks_host
+        os.environ['DATABRICKS_TOKEN'] = databricks_token
+        print(f"Databricks authentication configured")
+        print(f"  Host: {databricks_host}")
+        return True
+
+    return False
+
+
+def get_mlflow_tracking_uri(mlflow_tracking_uri: str = None) -> tuple:
+    if mlflow_tracking_uri and mlflow_tracking_uri.lower() == 'databricks':
+        if setup_databricks_auth():
+            return "databricks", "Databricks workspace"
+        else:
+            print("WARNING: Databricks URI requested but credentials not found")
+            return "file:./mlruns", "default (local)"
+
+    if mlflow_tracking_uri and mlflow_tracking_uri.strip():
+        return mlflow_tracking_uri, "command line argument"
+
+    if os.environ.get('MLFLOW_TRACKING_URI'):
+        uri = os.environ.get('MLFLOW_TRACKING_URI')
+        if uri.lower() == 'databricks':
+            if setup_databricks_auth():
+                return "databricks", "environment variable (Databricks)"
+        return uri, "environment variable"
+
+    return "file:./mlruns", "default (local)"
+
+def package_model(mlflow_run_id: str, output_file: str, mlflow_tracking_uri: str = None):
     print(f"Packaging model from MLflow run {mlflow_run_id}...")
+
+    tracking_uri, uri_source = get_mlflow_tracking_uri(mlflow_tracking_uri)
+    mlflow.set_tracking_uri(tracking_uri)
+
+    print(f"  MLflow Tracking: {tracking_uri}")
+    print(f"    (from {uri_source})")
 
     temp_dir = Path("temp_model")
     temp_dir.mkdir(exist_ok=True)
@@ -17,7 +57,17 @@ def package_model(mlflow_run_id: str, output_file: str):
         model_uri = f"runs:/{mlflow_run_id}/model"
         print(f"  Downloading from: {model_uri}")
 
-        model = mlflow.sklearn.load_model(model_uri)
+        try:
+            model = mlflow.sklearn.load_model(model_uri)
+            print(f"  Model loaded successfully: {type(model).__name__}")
+        except Exception as e:
+            print(f"  ERROR loading model: {e}")
+            print(f"\n  Troubleshooting:")
+            print(f"    - Check run ID is correct: {mlflow_run_id}")
+            if tracking_uri == "databricks":
+                print(f"    - Check Databricks credentials (DATABRICKS_HOST, DATABRICKS_TOKEN)")
+            print(f"    - Verify model was logged to MLflow")
+            raise
 
         model_path = temp_dir / "model.joblib"
         joblib.dump(model, model_path)
@@ -111,7 +161,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Package model for SageMaker')
     parser.add_argument('--mlflow-run-id', required=True, help='MLflow run ID')
     parser.add_argument('--output-file', required=True, help='Output tar.gz file')
+    parser.add_argument('--mlflow-tracking-uri', required=False, default=None,
+                        help='MLflow tracking URI (use "databricks" for Databricks)')
 
     args = parser.parse_args()
 
-    package_model(args.mlflow_run_id, args.output_file)
+    package_model(args.mlflow_run_id, args.output_file, args.mlflow_tracking_uri)
