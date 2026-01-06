@@ -9,53 +9,14 @@ from sklearn.metrics import classification_report
 from imblearn.over_sampling import SMOTE
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
-from src.utils.config_manager import load_config
-
-def setup_databricks_auth():
-    databricks_host = os.environ.get('DATABRICKS_HOST')
-    databricks_token = os.environ.get('DATABRICKS_TOKEN')
-
-    if databricks_host and databricks_token:
-        os.environ['DATABRICKS_HOST'] = databricks_host
-        os.environ['DATABRICKS_TOKEN'] = databricks_token
-
-        print(f"Databricks authentication configured")
-        print(f"  Host: {databricks_host}")
-        return True
-
-    return False
-
-
-def get_mlflow_tracking_uri(config: dict, cli_uri: str = None) -> tuple:
-    if cli_uri and cli_uri.lower() == 'databricks':
-        if setup_databricks_auth():
-            return "databricks", "Databricks workspace"
-        else:
-            print("WARNING: Databricks URI requested but credentials not found")
-            print("Falling back to local tracking")
-            return "file:./mlruns", "default (local)"
-
-    if cli_uri and cli_uri.strip():
-        return cli_uri, "command line argument"
-
-    if os.environ.get('MLFLOW_TRACKING_URI'):
-        uri = os.environ.get('MLFLOW_TRACKING_URI')
-        if uri.lower() == 'databricks':
-            if setup_databricks_auth():
-                return "databricks", "environment variable (Databricks)"
-        return uri, "environment variable"
-
-    if config.get('mlflow', {}).get('tracking_uri'):
-        return config['mlflow']['tracking_uri'], "config file"
-
-    return "file:./mlruns", "default (local)"
+from src.utils.config_manager import load_config, get_mlflow_tracking_uri
 
 def train_model(data_path: str, base_config_path: str,
                 override_config_path: str, mlflow_tracking_uri: str = None):
 
     config = load_config(base_config_path, override_config_path)
 
-    tracking_uri, uri_source = get_mlflow_tracking_uri(config, mlflow_tracking_uri)
+    tracking_uri, uri_source = get_mlflow_tracking_uri(mlflow_tracking_uri)
 
     experiment_name = config['experiment']['name']
 
