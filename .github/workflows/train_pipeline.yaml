@@ -109,14 +109,14 @@ on:
         required: false
         default: false
 
-  push:
-    branches: [main]
-    paths:
-      - 'src/models/**'
-      - 'config/train_config.yaml'
-
-  schedule:
-    - cron: '0 2 * * *'
+#  push:
+#    branches: [main]
+#    paths:
+#      - 'src/models/**'
+#      - 'config/train_config.yaml'
+#
+#  schedule:
+#    - cron: '0 2 * * *'
 
 env:
   AWS_REGION: us-east-1
