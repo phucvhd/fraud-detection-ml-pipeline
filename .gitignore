@@ -22,7 +22,10 @@ data/
 *.parquet
 
 # Models
-models/
+*.pkl
+*.joblib
+*.h5
+*.tar.gz
 
 # Logs
 *.log
