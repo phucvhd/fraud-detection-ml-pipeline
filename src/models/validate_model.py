@@ -210,8 +210,8 @@ def validate_model(model_run_id: str, test_data_path: str,
 
         print(f"\nPrediction Summary:")
         print(
-            f"  Correct predictions: {predictions_df["correct"].sum():,} ({predictions_df["correct"].mean() * 100:.2f}%)")
-        print(f"  Incorrect predictions: {(~predictions_df["correct"]).sum():,}")
+            f"  Correct predictions: {predictions_df['correct'].sum():,} ({predictions_df['correct'].mean() * 100:.2f}%)")
+        print(f"  Incorrect predictions: {(~predictions_df['correct']).sum():,}")
 
     if "GITHUB_OUTPUT" in os.environ:
         with open(os.environ["GITHUB_OUTPUT"], "a") as f:
