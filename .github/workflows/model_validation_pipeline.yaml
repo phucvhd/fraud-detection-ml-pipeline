@@ -16,7 +16,7 @@ on:
       test_data_file:
         description: 'Test data filename in S3 data bucket'
         required: false
-        default: 'data/creditcard_2023.csv'
+        default: 'data/creditcard_test.csv'
         type: string
 
       enable_time_features:
