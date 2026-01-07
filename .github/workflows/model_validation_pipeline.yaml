@@ -100,23 +100,6 @@ jobs:
         echo "Test file: $TEST_FILE"
         
         aws s3 cp s3://${{ env.S3_DATA_BUCKET }}/$TEST_FILE ./data/test_data.csv
-        
-        echo "Test dataset downloaded ($(du -h ./data/test_data.csv | cut -f1))"
-        
-        echo ""
-        echo "Test Data Statistics:"
-        python -c "
-          import pandas as pd
-          df = pd.read_csv('./data/test_data.csv')
-          print(f'  Total samples: {len(df):,}')
-          if 'Class' in df.columns:
-              fraud_count = df['Class'].sum()
-              fraud_rate = df['Class'].mean() * 100
-              print(f'  Fraud cases: {fraud_count:,} ({fraud_rate:.3f}%)')
-              print(f'  Normal cases: {(df[\"Class\"]==0).sum():,}')
-          else:
-              print('  WARNING: No Class column found in test data')
-          "
     
     - name: Validate model
       id: test
