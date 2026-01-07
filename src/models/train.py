@@ -51,7 +51,7 @@ def train_model(data_path: str, base_config_path: str,
     print(f"  Fraud cases: {df['Class'].sum()} ({df['Class'].mean()*100:.3f}%)")
     print(f"  Normal cases: {(df['Class']==0).sum()} ({(df['Class']==0).mean()*100:.3f}%)")
 
-    X = df.drop('Class', axis=1)
+    data_x = df.drop('Class', axis=1)
     y = df['Class']
 
     print(f"\nFeature Engineering...")
@@ -60,44 +60,44 @@ def train_model(data_path: str, base_config_path: str,
         print("  Adding time-based features...")
 
         if config['features']['time_features'].get('hour_of_day', False):
-            X['hour_of_day'] = (X['Time'] / 3600) % 24
+            data_x['hour_of_day'] = (data_x['Time'] / 3600) % 24
             print("    hour_of_day")
 
         if config['features']['time_features'].get('day_period', False):
-            hour = (X['Time'] / 3600) % 24
-            X['day_period'] = pd.cut(hour, bins=[0, 6, 12, 18, 24],
+            hour = (data_x['Time'] / 3600) % 24
+            data_x['day_period'] = pd.cut(hour, bins=[0, 6, 12, 18, 24],
                                      labels=[0, 1, 2, 3], include_lowest=True)
             print("    day_period")
 
         if config['features']['time_features'].get('time_since_start', False):
-            X['time_since_start'] = X['Time'] / X['Time'].max()
+            data_x['time_since_start'] = data_x['Time'] / data_x['Time'].max()
             print("    time_since_start")
 
     if config['features']['amount_features']['enabled']:
         print("  Adding amount-based features...")
 
         if config['features']['amount_features'].get('log_transform', False):
-            X['log_amount'] = np.log1p(X['Amount'])
+            data_x['log_amount'] = np.log1p(data_x['Amount'])
             print("    log_amount")
 
         if config['features']['amount_features'].get('standardize', False):
             from sklearn.preprocessing import StandardScaler
             scaler = StandardScaler()
-            X['amount_scaled'] = scaler.fit_transform(X[['Amount']])
+            data_x['amount_scaled'] = scaler.fit_transform(data_x[['Amount']])
             print("    amount_scaled")
 
-    print(f"  Total features: {X.shape[1]}")
+    print(f"  Total features: {data_x.shape[1]}")
 
     print(f"\nSplitting data...")
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y,
+    data_x_train, data_x_test, y_train, y_test = train_test_split(
+        data_x, y,
         test_size=config['data']['splits']['test_size'],
         stratify=y if config['data']['splits']['stratify'] else None,
         random_state=config['data']['random_state']
     )
 
-    print(f"  Training set: {len(X_train):,} samples ({y_train.sum():,} fraud)")
-    print(f"  Test set: {len(X_test):,} samples ({y_test.sum():,} fraud)")
+    print(f"  Training set: {len(data_x_train):,} samples ({y_train.sum():,} fraud)")
+    print(f"  Test set: {len(data_x_test):,} samples ({y_test.sum():,} fraud)")
 
     print(f"\nApplying SMOTE...")
     smote_config = config['imbalance']['smote']
@@ -110,11 +110,11 @@ def train_model(data_path: str, base_config_path: str,
 
     print(f"  Sampling strategy: {smote_config['sampling_strategy']}")
     print(f"  K neighbors: {smote_config['k_neighbors']}")
-    print(f"  Before SMOTE: {len(X_train):,} samples ({y_train.sum():,} fraud)")
+    print(f"  Before SMOTE: {len(data_x_train):,} samples ({y_train.sum():,} fraud)")
 
-    X_train_resampled, y_train_resampled = smote.fit_resample(X_train, y_train)
+    data_x_train_resampled, y_train_resampled = smote.fit_resample(data_x_train, y_train)
 
-    print(f"  After SMOTE: {len(X_train_resampled):,} samples ({y_train_resampled.sum():,} fraud)")
+    print(f"  After SMOTE: {len(data_x_train_resampled):,} samples ({y_train_resampled.sum():,} fraud)")
     print(f"  New fraud rate: {y_train_resampled.mean()*100:.2f}%")
 
     with mlflow.start_run() as run:
@@ -130,7 +130,7 @@ def train_model(data_path: str, base_config_path: str,
             'smote_k_neighbors': smote_config['k_neighbors'],
             'dataset_original_fraud_rate': float(y.mean()),
             'dataset_after_smote_fraud_rate': float(y_train_resampled.mean()),
-            'num_features': X_train_resampled.shape[1],
+            'num_features': data_x_train_resampled.shape[1],
             **{f"rf_{k}": v for k, v in config['model']['params'].items()}
         })
 
@@ -153,7 +153,7 @@ def train_model(data_path: str, base_config_path: str,
             verbose=1
         )
 
-        model.fit(X_train_resampled, y_train_resampled)
+        model.fit(data_x_train_resampled, y_train_resampled)
 
         print("Training completed")
 
@@ -164,7 +164,7 @@ def train_model(data_path: str, base_config_path: str,
 
         if config['mlflow'].get('log_feature_importance', False):
             feature_importance = pd.DataFrame({
-                'feature': X_train.columns,
+                'feature': data_x_train.columns,
                 'importance': model.feature_importances_
             }).sort_values('importance', ascending=False)
 
@@ -176,8 +176,8 @@ def train_model(data_path: str, base_config_path: str,
             mlflow.log_artifact('feature_importance.csv')
 
         print(f"\nQuick evaluation on test set...")
-        y_pred = model.predict(X_test)
-        y_pred_proba = model.predict_proba(X_test)[:, 1]
+        y_pred = model.predict(data_x_test)
+        y_pred_proba = model.predict_proba(data_x_test)[:, 1]
 
         from sklearn.metrics import recall_score, precision_score, f1_score
 
