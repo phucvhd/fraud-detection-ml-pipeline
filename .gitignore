@@ -23,10 +23,6 @@ data/
 
 # Models
 models/
-*.pkl
-*.joblib
-*.h5
-*.tar.gz
 
 # Logs
 *.log
