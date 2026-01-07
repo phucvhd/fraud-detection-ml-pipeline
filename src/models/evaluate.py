@@ -227,7 +227,7 @@ def evaluate_model(model_run_id: str, data_path: str,
 
     if "GITHUB_OUTPUT" in os.environ:
         with open(os.environ["GITHUB_OUTPUT"], "a") as f:
-            f.write(f"passed={"true" if passed else "false"}\n")
+            f.write(f"passed={'true' if passed else 'false'}\n")
 
     return metrics
 
