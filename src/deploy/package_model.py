@@ -1,45 +1,15 @@
 import argparse
 import os
+import sys
+
 import mlflow
 import tarfile
 import shutil
 import joblib
 from pathlib import Path
+sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
+from src.utils.config_manager import get_mlflow_tracking_uri
 
-
-def setup_databricks_auth():
-    databricks_host = os.environ.get('DATABRICKS_HOST')
-    databricks_token = os.environ.get('DATABRICKS_TOKEN')
-
-    if databricks_host and databricks_token:
-        os.environ['DATABRICKS_HOST'] = databricks_host
-        os.environ['DATABRICKS_TOKEN'] = databricks_token
-        print(f"Databricks authentication configured")
-        print(f"  Host: {databricks_host}")
-        return True
-
-    return False
-
-
-def get_mlflow_tracking_uri(mlflow_tracking_uri: str = None) -> tuple:
-    if mlflow_tracking_uri and mlflow_tracking_uri.lower() == 'databricks':
-        if setup_databricks_auth():
-            return "databricks", "Databricks workspace"
-        else:
-            print("WARNING: Databricks URI requested but credentials not found")
-            return "file:./mlruns", "default (local)"
-
-    if mlflow_tracking_uri and mlflow_tracking_uri.strip():
-        return mlflow_tracking_uri, "command line argument"
-
-    if os.environ.get('MLFLOW_TRACKING_URI'):
-        uri = os.environ.get('MLFLOW_TRACKING_URI')
-        if uri.lower() == 'databricks':
-            if setup_databricks_auth():
-                return "databricks", "environment variable (Databricks)"
-        return uri, "environment variable"
-
-    return "file:./mlruns", "default (local)"
 
 def package_model(mlflow_run_id: str, output_file: str, mlflow_tracking_uri: str = None):
     print(f"Packaging model from MLflow run {mlflow_run_id}...")
