@@ -3,7 +3,6 @@ name: Model Validation Pipeline
 on:
   workflow_dispatch:
     inputs:
-      # Model Selection
       mlflow_run_id:
         description: 'MLflow Run ID of the trained model to test'
         required: true
@@ -14,14 +13,12 @@ on:
         required: false
         default: 'Model Performance Validation'
 
-      # Test Data Configuration
       test_data_file:
         description: 'Test data filename in S3 data bucket'
         required: false
         default: 'data/creditcard_2023.csv'
         type: string
 
-      # Feature Engineering (must match training)
       enable_time_features:
         description: 'Enable time-based features (should match training)?'
         type: boolean
@@ -34,7 +31,6 @@ on:
         required: false
         default: true
 
-      # Performance Thresholds
       expected_min_recall:
         description: 'Expected minimum recall (for reference)'
         required: false
@@ -45,7 +41,6 @@ on:
         required: false
         default: '0.80'
 
-      # Additional Options
       save_predictions:
         description: 'Save predictions to S3?'
         type: boolean
@@ -111,17 +106,17 @@ jobs:
         echo ""
         echo "Test Data Statistics:"
         python -c "
-import pandas as pd
-df = pd.read_csv('./data/test_data.csv')
-print(f'  Total samples: {len(df):,}')
-if 'Class' in df.columns:
-    fraud_count = df['Class'].sum()
-    fraud_rate = df['Class'].mean() * 100
-    print(f'  Fraud cases: {fraud_count:,} ({fraud_rate:.3f}%)')
-    print(f'  Normal cases: {(df[\"Class\"]==0).sum():,}')
-else:
-    print('  WARNING: No Class column found in test data')
-"
+          import pandas as pd
+          df = pd.read_csv('./data/test_data.csv')
+          print(f'  Total samples: {len(df):,}')
+          if 'Class' in df.columns:
+              fraud_count = df['Class'].sum()
+              fraud_rate = df['Class'].mean() * 100
+              print(f'  Fraud cases: {fraud_count:,} ({fraud_rate:.3f}%)')
+              print(f'  Normal cases: {(df[\"Class\"]==0).sum():,}')
+          else:
+              print('  WARNING: No Class column found in test data')
+          "
     
     - name: Validate model
       id: test
