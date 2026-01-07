@@ -116,7 +116,7 @@ jobs:
         echo "============================================"
         echo ""
         
-        python src/models/test_model.py \
+        python src/models/validate_model.py \
           --model-run-id "${{ github.event.inputs.mlflow_run_id }}" \
           --test-data-path ./data/test_data.csv \
           --enable-time-features ${{ github.event.inputs.enable_time_features }} \
