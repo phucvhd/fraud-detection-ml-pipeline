@@ -108,12 +108,12 @@ def evaluate_model(model_run_id: str, data_path: str,
     print("\n" + "=" * 70)
     print("EVALUATION RESULTS")
     print("=" * 70)
-    print(f"Recall (Sensitivity):    {metrics["recall"]:.4f}")
-    print(f"Precision:               {metrics["precision"]:.4f}")
-    print(f"F1 Score:                {metrics["f1"]:.4f}")
-    print(f"Specificity:             {metrics["specificity"]:.4f}")
-    print(f"ROC-AUC:                 {metrics["roc_auc"]:.4f}")
-    print(f"PR-AUC:                  {metrics["pr_auc"]:.4f}")
+    print(f"Recall (Sensitivity):    {metrics['recall']:.4f}")
+    print(f"Precision:               {metrics['precision']:.4f}")
+    print(f"F1 Score:                {metrics['f1']:.4f}")
+    print(f"Specificity:             {metrics['specificity']:.4f}")
+    print(f"ROC-AUC:                 {metrics['roc_auc']:.4f}")
+    print(f"PR-AUC:                  {metrics['pr_auc']:.4f}")
     print("=" * 70)
 
     print(f"\nConfusion Matrix:")
@@ -138,7 +138,7 @@ def evaluate_model(model_run_id: str, data_path: str,
             plt.plot(recall_vals, precision_vals, linewidth=2)
             plt.xlabel("Recall")
             plt.ylabel("Precision")
-            plt.title(f"Precision-Recall Curve (AUC = {metrics["pr_auc"]:.4f})")
+            plt.title(f"Precision-Recall Curve (AUC = {metrics['pr_auc']:.4f})")
             plt.grid(True)
             plt.savefig("pr_curve.png", dpi=150, bbox_inches="tight")
             mlflow.log_artifact("pr_curve.png")
@@ -150,7 +150,7 @@ def evaluate_model(model_run_id: str, data_path: str,
             plt.plot([0, 1], [0, 1], "k--")
             plt.xlabel("False Positive Rate")
             plt.ylabel("True Positive Rate")
-            plt.title(f"ROC Curve (AUC = {metrics["roc_auc"]:.4f})")
+            plt.title(f"ROC Curve (AUC = {metrics['roc_auc']:.4f})")
             plt.grid(True)
             plt.savefig("roc_curve.png", dpi=150, bbox_inches="tight")
             mlflow.log_artifact("roc_curve.png")
@@ -174,10 +174,10 @@ def evaluate_model(model_run_id: str, data_path: str,
 
     if "GITHUB_OUTPUT" in os.environ:
         with open(os.environ["GITHUB_OUTPUT"], "a") as f:
-            f.write(f"recall={metrics["recall"]}\n")
-            f.write(f"precision={metrics["precision"]}\n")
-            f.write(f"pr_auc={metrics["pr_auc"]}\n")
-            f.write(f"f1={metrics["f1"]}\n")
+            f.write(f"recall={metrics['recall']}\n")
+            f.write(f"precision={metrics['precision']}\n")
+            f.write(f"pr_auc={metrics['pr_auc']}\n")
+            f.write(f"f1={metrics['f1']}\n")
 
     quality_gates = config["quality_gates"]
 
