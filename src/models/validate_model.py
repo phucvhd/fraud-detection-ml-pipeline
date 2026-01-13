@@ -20,7 +20,7 @@ def apply_feature_engineering(data_x, enable_time_features=True, enable_amount_f
     print("Applying feature engineering...")
 
     if enable_time_features:
-        print("  Adding time-based features...")
+        print("Adding time-based features...")
         data_x["hour_of_day"] = (data_x["Time"] / 3600) % 24
 
         hour = (data_x["Time"] / 3600) % 24
@@ -28,16 +28,16 @@ def apply_feature_engineering(data_x, enable_time_features=True, enable_amount_f
                                  labels=[0, 1, 2, 3], include_lowest=True)
 
         data_x["time_since_start"] = data_x["Time"] / data_x["Time"].max()
-        print("    hour_of_day, day_period, time_since_start")
+        print("hour_of_day, day_period, time_since_start")
 
     if enable_amount_features:
-        print("  Adding amount-based features...")
+        print("Adding amount-based features...")
         data_x["log_amount"] = np.log1p(data_x["Amount"])
 
         from sklearn.preprocessing import StandardScaler
         scaler = StandardScaler()
         data_x["amount_scaled"] = scaler.fit_transform(data_x[["Amount"]])
-        print("    log_amount, amount_scaled")
+        print("log_amount, amount_scaled")
 
     return data_x
 
@@ -49,39 +49,35 @@ def validate_model(model_run_id: str, test_data_path: str,
     tracking_uri, uri_source = get_mlflow_tracking_uri(mlflow_tracking_uri)
     mlflow.set_tracking_uri(tracking_uri)
 
-    print("=" * 70)
     print("MODEL VALIDATION - INDEPENDENT TEST DATA")
-    print("=" * 70)
     print(f"Model Run ID: {model_run_id}")
     print(f"Test Data: {test_data_path}")
-    print(f"MLflow Tracking: {tracking_uri}")
-    print(f"  (from {uri_source})")
-    print("=" * 70)
+    print(f"MLflow Tracking: {tracking_uri} from {uri_source}")
 
-    print(f"\nLoading model from MLflow...")
+    print(f"Loading model from MLflow...")
     model_uri = f"runs:/{model_run_id}/model"
 
     try:
         model = mlflow.sklearn.load_model(model_uri)
-        print(f"  Model loaded successfully: {type(model).__name__}")
+        print(f"Model loaded successfully: {type(model).__name__}")
 
         if hasattr(model, "n_estimators"):
-            print(f"  Number of trees: {model.n_estimators}")
+            print(f"Number of trees: {model.n_estimators}")
         if hasattr(model, "max_depth"):
-            print(f"  Max depth: {model.max_depth}")
+            print(f"Max depth: {model.max_depth}")
 
     except Exception as e:
-        print(f"  ERROR loading model: {e}")
-        print(f"\n  Troubleshooting:")
-        print(f"    - Check run ID is correct: {model_run_id}")
-        print(f"    - Check Databricks credentials are set")
-        print(f"    - Verify model exists in MLflow")
+        print(f"ERROR loading model: {e}")
+        print(f"Troubleshooting:")
+        print(f"- Check run ID is correct: {model_run_id}")
+        print(f"- Check Databricks credentials are set")
+        print(f"- Verify model exists in MLflow")
         raise
 
-    print(f"\nLoading test data (NO SPLITTING - using entire dataset)...")
+    print(f"Loading test data (NO SPLITTING - using entire dataset)...")
     df_test = pd.read_csv(test_data_path)
 
-    print(f"  Test set: {len(df_test):,} samples")
+    print(f"Test set: {len(df_test):,} samples")
 
     if "Class" not in df_test.columns:
         raise ValueError("Test data must have 'Class' column for validation")
@@ -92,22 +88,22 @@ def validate_model(model_run_id: str, test_data_path: str,
     fraud_count = test_data_y.sum()
     fraud_rate = test_data_y.mean() * 100
 
-    print(f"  Fraud cases: {fraud_count:,} ({fraud_rate:.3f}%)")
-    print(f"  Normal cases: {(test_data_y == 0).sum():,} ({100 - fraud_rate:.3f}%)")
+    print(f"Fraud cases: {fraud_count:,} ({fraud_rate:.3f}%)")
+    print(f"Normal cases: {(test_data_y == 0).sum():,} ({100 - fraud_rate:.3f}%)")
 
     data_x_test = apply_feature_engineering(data_x_test, enable_time_features, enable_amount_features)
 
-    print(f"  Total features after engineering: {data_x_test.shape[1]}")
+    print(f"Total features after engineering: {data_x_test.shape[1]}")
 
-    print(f"\nMaking predictions on entire test dataset...")
+    print(f"Making predictions on entire test dataset...")
     y_pred = model.predict(data_x_test)
     y_pred_proba = model.predict_proba(data_x_test)[:, 1]
 
-    print(f"  Predictions completed")
-    print(f"  Predicted fraud: {y_pred.sum():,}")
-    print(f"  Predicted normal: {(y_pred == 0).sum():,}")
+    print(f"Predictions completed")
+    print(f"Predicted fraud: {y_pred.sum():,}")
+    print(f"Predicted normal: {(y_pred == 0).sum():,}")
 
-    print(f"\nCalculating validation metrics...")
+    print(f"Calculating validation metrics...")
 
     metrics = {
         "precision": float(precision_score(test_data_y, y_pred, zero_division=0)),
@@ -126,39 +122,35 @@ def validate_model(model_run_id: str, test_data_path: str,
     metrics["test_samples"] = int(len(test_data_y))
     metrics["fraud_samples"] = int(fraud_count)
 
-    print("\n" + "=" * 70)
     print("VALIDATION RESULTS")
-    print("=" * 70)
     print(f"Recall (Sensitivity):    {metrics['recall']:.4f}  ({tp}/{fraud_count} frauds detected)")
     print(f"Precision:               {metrics['precision']:.4f}  ({tp}/{tp + fp} fraud predictions correct)")
     print(f"F1 Score:                {metrics['f1']:.4f}")
     print(f"Specificity:             {metrics['specificity']:.4f}  ({tn}/{tn + fp} normals detected)")
     print(f"ROC-AUC:                 {metrics['roc_auc']:.4f}")
     print(f"PR-AUC:                  {metrics['pr_auc']:.4f}")
-    print("=" * 70)
 
-    print(f"\nConfusion Matrix:")
-    print(f"                 Predicted")
-    print(f"                 Normal    Fraud")
-    print(f"Actual  Normal   {tn:6d}    {fp:6d}")
-    print(f"        Fraud    {fn:6d}    {tp:6d}")
-    print("=" * 70)
+    print(f"Confusion Matrix:")
+    print(f"tn={tn}")
+    print(f"fn={fn}")
+    print(f"tp={tp}")
+    print(f"fp={fp}")
 
-    print(f"\nDetailed Classification Report:")
+    print(f"Detailed Classification Report:")
     print(classification_report(test_data_y, y_pred, target_names=["Normal", "Fraud"]))
 
-    print(f"\nError Analysis:")
-    print(f"  False Negatives (Missed Fraud): {fn}")
+    print(f"Error Analysis:")
+    print(f"False Negatives (Missed Fraud): {fn}")
     if fn > 0:
-        print(f"    - {fn} fraud transactions were incorrectly classified as normal")
-        print(f"    - This represents {(fn / fraud_count) * 100:.2f}% of all fraud cases")
+        print(f"- {fn} fraud transactions were incorrectly classified as normal")
+        print(f"- This represents {(fn / fraud_count) * 100:.2f}% of all fraud cases")
 
-    print(f"  False Positives (False Alarms): {fp}")
+    print(f"False Positives (False Alarms): {fp}")
     if fp > 0:
-        print(f"    - {fp} normal transactions were incorrectly flagged as fraud")
-        print(f"    - False alarm rate: {(fp / (tn + fp)) * 100:.4f}%")
+        print(f"- {fp} normal transactions were incorrectly flagged as fraud")
+        print(f"- False alarm rate: {(fp / (tn + fp)) * 100:.4f}%")
 
-    print(f"\nCreating visualizations...")
+    print(f"Creating visualizations...")
 
     precision_vals, recall_vals, _ = precision_recall_curve(test_data_y, y_pred_proba)
     plt.figure(figsize=(8, 6))
@@ -169,7 +161,7 @@ def validate_model(model_run_id: str, test_data_path: str,
     plt.grid(True)
     plt.savefig("pr_curve.png", dpi=150, bbox_inches="tight")
     plt.close()
-    print("  Saved: pr_curve.png")
+    print("Saved: pr_curve.png")
 
     fpr, tpr, _ = roc_curve(test_data_y, y_pred_proba)
     plt.figure(figsize=(8, 6))
@@ -182,7 +174,7 @@ def validate_model(model_run_id: str, test_data_path: str,
     plt.grid(True)
     plt.savefig("roc_curve.png", dpi=150, bbox_inches="tight")
     plt.close()
-    print("  Saved: roc_curve.png")
+    print("Saved: roc_curve.png")
 
     from sklearn.metrics import ConfusionMatrixDisplay
     fig, ax = plt.subplots(figsize=(8, 6))
@@ -192,11 +184,11 @@ def validate_model(model_run_id: str, test_data_path: str,
     plt.title("Confusion Matrix - Independent Test Data")
     plt.savefig("confusion_matrix.png", dpi=150, bbox_inches="tight")
     plt.close()
-    print("  Saved: confusion_matrix.png")
+    print("Saved: confusion_matrix.png")
 
     with open(output_path, "w") as f:
         json.dump(metrics, f, indent=2)
-    print(f"\nMetrics saved to: {output_path}")
+    print(f"Metrics saved to: {output_path}")
 
     if save_predictions:
         predictions_df = pd.DataFrame({
@@ -208,10 +200,9 @@ def validate_model(model_run_id: str, test_data_path: str,
         predictions_df.to_csv(save_predictions, index=False)
         print(f"Predictions saved to: {save_predictions}")
 
-        print(f"\nPrediction Summary:")
-        print(
-            f"  Correct predictions: {predictions_df['correct'].sum():,} ({predictions_df['correct'].mean() * 100:.2f}%)")
-        print(f"  Incorrect predictions: {(~predictions_df['correct']).sum():,}")
+        print(f"Prediction Summary:")
+        print(f"Correct predictions: {predictions_df['correct'].sum():,} ({predictions_df['correct'].mean() * 100:.2f}%)")
+        print(f"Incorrect predictions: {(~predictions_df['correct']).sum():,}")
 
     if "GITHUB_OUTPUT" in os.environ:
         with open(os.environ["GITHUB_OUTPUT"], "a") as f:
@@ -221,9 +212,7 @@ def validate_model(model_run_id: str, test_data_path: str,
             f.write(f"f1={metrics['f1']}\n")
             f.write(f"roc_auc={metrics['roc_auc']}\n")
 
-    print("\n" + "=" * 70)
     print("VALIDATION COMPLETED SUCCESSFULLY")
-    print("=" * 70)
 
     return metrics
 

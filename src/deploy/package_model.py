@@ -17,38 +17,38 @@ def package_model(mlflow_run_id: str, output_file: str, mlflow_tracking_uri: str
     tracking_uri, uri_source = get_mlflow_tracking_uri(mlflow_tracking_uri)
     mlflow.set_tracking_uri(tracking_uri)
 
-    print(f"  MLflow Tracking: {tracking_uri}")
-    print(f"    (from {uri_source})")
+    print(f"MLflow Tracking: {tracking_uri}")
+    print(f"(from {uri_source})")
 
     temp_dir = Path("temp_model")
     temp_dir.mkdir(exist_ok=True)
 
     try:
         model_uri = f"runs:/{mlflow_run_id}/model"
-        print(f"  Downloading from: {model_uri}")
+        print(f"Downloading from: {model_uri}")
 
         try:
             model = mlflow.sklearn.load_model(model_uri)
-            print(f"  Model loaded successfully: {type(model).__name__}")
+            print(f"Model loaded successfully: {type(model).__name__}")
         except Exception as e:
-            print(f"  ERROR loading model: {e}")
-            print(f"\n  Troubleshooting:")
-            print(f"    - Check run ID is correct: {mlflow_run_id}")
+            print(f"ERROR loading model: {e}")
+            print(f"Troubleshooting:")
+            print(f"- Check run ID is correct: {mlflow_run_id}")
             if tracking_uri == "databricks":
-                print(f"    - Check Databricks credentials (DATABRICKS_HOST, DATABRICKS_TOKEN)")
-            print(f"    - Verify model was logged to MLflow")
+                print(f"- Check Databricks credentials (DATABRICKS_HOST, DATABRICKS_TOKEN)")
+            print(f"- Verify model was logged to MLflow")
             raise
 
         model_path = temp_dir / "model.joblib"
         joblib.dump(model, model_path)
-        print(f"  Model saved: {model_path}")
+        print(f"Model saved: {model_path}")
 
         inference_script = Path("src/models/inference.py")
         if inference_script.exists():
             shutil.copy(inference_script, temp_dir / "inference.py")
-            print(f"  Inference script copied")
+            print(f"Inference script copied")
         else:
-            print("  Creating basic inference.py")
+            print("Creating basic inference.py")
             create_basic_inference_script(temp_dir / "inference.py")
 
         requirements_content = """
@@ -59,17 +59,17 @@ def package_model(mlflow_run_id: str, output_file: str, mlflow_tracking_uri: str
             """
         with open(temp_dir / "requirements.txt", 'w') as f:
             f.write(requirements_content)
-        print(f"  Requirements.txt created")
+        print(f"Requirements.txt created")
 
-        print(f"\n  Creating model.tar.gz...")
+        print(f"Creating model.tar.gz...")
         with tarfile.open(output_file, "w:gz") as tar:
             for item in temp_dir.iterdir():
                 tar.add(item, arcname=item.name)
 
         file_size_mb = os.path.getsize(output_file) / 1024 / 1024
-        print(f"\nModel packaged successfully")
-        print(f"   File: {output_file}")
-        print(f"   Size: {file_size_mb:.2f} MB")
+        print(f"Model packaged successfully")
+        print(f"File: {output_file}")
+        print(f"Size: {file_size_mb:.2f} MB")
 
     finally:
         if temp_dir.exists():

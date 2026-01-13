@@ -14,9 +14,8 @@ def register_model(run_id: str, model_name: str, stage: str = "None", mlflow_tra
         print(f"Using legacy Databricks Workspace Model Registry")
 
     print(f"Registering model from run {run_id}...")
-    print(f"  MLflow Tracking: {tracking_uri}")
-    print(f"    (from {uri_source})")
-    print(f"  Model Name: {model_name}")
+    print(f"MLflow Tracking: {tracking_uri} from {uri_source}")
+    print(f"Model Name: {model_name}")
 
     client = MlflowClient()
 
@@ -25,8 +24,8 @@ def register_model(run_id: str, model_name: str, stage: str = "None", mlflow_tra
     try:
         model_details = mlflow.register_model(model_uri, model_name)
 
-        print(f"  Model registered: {model_name}")
-        print(f"  Version: {model_details.version}")
+        print(f"Model registered: {model_name}")
+        print(f"Version: {model_details.version}")
 
         if stage != "None":
             client.transition_model_version_stage(
@@ -34,12 +33,12 @@ def register_model(run_id: str, model_name: str, stage: str = "None", mlflow_tra
                 version=model_details.version,
                 stage=stage
             )
-            print(f"  Stage transitioned to: {stage}")
+            print(f"Stage transitioned to: {stage}")
 
         return model_details
 
     except Exception as e:
-        print(f"  ERROR registering model: {e}")
+        print(f"ERROR registering model: {e}")
         raise
 
 
