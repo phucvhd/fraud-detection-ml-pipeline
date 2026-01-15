@@ -24,29 +24,25 @@ def evaluate_model(model_run_id: str, data_path: str,
     tracking_uri, uri_source = get_mlflow_tracking_uri(mlflow_tracking_uri)
     mlflow.set_tracking_uri(tracking_uri)
 
-    print("=" * 70)
     print("MODEL EVALUATION")
-    print("=" * 70)
     print(f"MLflow Run ID: {model_run_id}")
-    print(f"MLflow Tracking: {tracking_uri}")
-    print(f"  (from {uri_source})")
-    print("=" * 70)
+    print(f"MLflow Tracking: {tracking_uri} from {uri_source}")
 
-    print(f"\nLoading model from MLflow...")
+    print(f"Loading model from MLflow...")
     model_uri = f"runs:/{model_run_id}/model"
     try:
         model = mlflow.sklearn.load_model(model_uri)
-        print(f"  Model loaded successfully")
-        print(f"  Model type: {type(model).__name__}")
+        print(f"Model loaded successfully")
+        print(f"Model type: {type(model).__name__}")
     except Exception as e:
-        print(f"  ERROR loading model: {e}")
-        print(f"\n  Troubleshooting:")
-        print(f"    - Check run ID is correct: {model_run_id}")
-        print(f"    - Check Databricks credentials are set")
-        print(f"    - Verify model was logged to MLflow")
+        print(f"ERROR loading model: {e}")
+        print(f"  Troubleshooting:")
+        print(f"  - Check run ID is correct: {model_run_id}")
+        print(f"  - Check Databricks credentials are set")
+        print(f"  - Verify model was logged to MLflow")
         raise
 
-    print(f"\nLoading evaluation data...")
+    print(f"Loading evaluation data...")
     df = pd.read_csv(data_path)
 
     test_size = int(len(df) * config["data"]["splits"]["test_size"])
@@ -55,10 +51,10 @@ def evaluate_model(model_run_id: str, data_path: str,
     data_x_test = df_test.drop("Class", axis=1)
     data_y_test = df_test["Class"]
 
-    print(f"  Test set: {len(data_x_test):,} samples")
-    print(f"  Fraud cases: {data_y_test.sum():,} ({data_y_test.mean() * 100:.3f}%)")
+    print(f"Test set: {len(data_x_test):,} samples")
+    print(f"Fraud cases: {data_y_test.sum():,} ({data_y_test.mean() * 100:.3f}%)")
 
-    print(f"\nApplying feature engineering...")
+    print(f"Applying feature engineering...")
 
     if config["features"]["time_features"]["enabled"]:
         if config["features"]["time_features"].get("hour_of_day", False):
@@ -82,13 +78,13 @@ def evaluate_model(model_run_id: str, data_path: str,
             scaler.fit(df[["Amount"]])
             data_x_test["amount_scaled"] = scaler.transform(data_x_test[["Amount"]])
 
-    print(f"  Features: {data_x_test.shape[1]}")
+    print(f"Features: {data_x_test.shape[1]}")
 
-    print(f"\nMaking predictions...")
+    print(f"Making predictions...")
     data_y_pred = model.predict(data_x_test)
     data_y_pred_proba = model.predict_proba(data_x_test)[:, 1]
 
-    print(f"\nCalculating metrics...")
+    print(f"Calculating metrics...")
 
     metrics = {
         "precision": float(precision_score(data_y_test, data_y_pred, zero_division=0)),
@@ -105,33 +101,29 @@ def evaluate_model(model_run_id: str, data_path: str,
     metrics["false_negatives"] = int(fn)
     metrics["specificity"] = float(tn / (tn + fp)) if (tn + fp) > 0 else 0.0
 
-    print("\n" + "=" * 70)
     print("EVALUATION RESULTS")
-    print("=" * 70)
     print(f"Recall (Sensitivity):    {metrics['recall']:.4f}")
     print(f"Precision:               {metrics['precision']:.4f}")
     print(f"F1 Score:                {metrics['f1']:.4f}")
     print(f"Specificity:             {metrics['specificity']:.4f}")
     print(f"ROC-AUC:                 {metrics['roc_auc']:.4f}")
     print(f"PR-AUC:                  {metrics['pr_auc']:.4f}")
-    print("=" * 70)
 
-    print(f"\nConfusion Matrix:")
-    print(f"                 Predicted")
-    print(f"                 Normal    Fraud")
-    print(f"Actual  Normal   {tn:6d}    {fp:6d}")
-    print(f"        Fraud    {fn:6d}    {tp:6d}")
-    print("=" * 70)
+    print(f"Confusion Matrix:")
+    print(f"tn={tn}")
+    print(f"fn={fn}")
+    print(f"tp={tp}")
+    print(f"fp={fp}")
 
-    print(f"\nDetailed Classification Report:")
+    print(f"Detailed Classification Report:")
     print(classification_report(data_y_test, data_y_pred, target_names=["Normal", "Fraud"]))
 
-    print(f"\nLogging metrics to MLflow...")
+    print(f"Logging metrics to MLflow...")
     with mlflow.start_run(run_id=model_run_id):
         mlflow.log_metrics(metrics)
 
         if config["mlflow"].get("log_plots", False):
-            print(f"  Creating visualization plots...")
+            print(f"Creating visualization plots...")
 
             precision_vals, recall_vals, _ = precision_recall_curve(data_y_test, data_y_pred_proba)
             plt.figure(figsize=(8, 6))
@@ -166,11 +158,11 @@ def evaluate_model(model_run_id: str, data_path: str,
             mlflow.log_artifact("confusion_matrix.png")
             plt.close()
 
-            print(f"  Plots saved and logged")
+            print(f"Plots saved and logged")
 
     with open(output_path, "w") as f:
         json.dump(metrics, f, indent=2)
-    print(f"\nMetrics saved to {output_path}")
+    print(f"Metrics saved to {output_path}")
 
     if "GITHUB_OUTPUT" in os.environ:
         with open(os.environ["GITHUB_OUTPUT"], "a") as f:
@@ -182,12 +174,10 @@ def evaluate_model(model_run_id: str, data_path: str,
     quality_gates = config["quality_gates"]
 
     if quality_gates.get("experimental_mode", False):
-        print("\nEdata_xPERIMENTAL MODE: Quality gates skipped")
+        print("Edata_xPERIMENTAL MODE: Quality gates skipped")
         return metrics
 
-    print("\n" + "=" * 70)
     print("QUALITY GATES CHECK")
-    print("=" * 70)
 
     passed = True
 
@@ -216,14 +206,10 @@ def evaluate_model(model_run_id: str, data_path: str,
         if not check_passed:
             passed = False
 
-    print("=" * 70)
-
     if passed:
         print("ALL QUALITY GATES PASSED")
     else:
         print("QUALITY GATES FAILED - Model does not meet requirements")
-
-    print("=" * 70)
 
     if "GITHUB_OUTPUT" in os.environ:
         with open(os.environ["GITHUB_OUTPUT"], "a") as f:

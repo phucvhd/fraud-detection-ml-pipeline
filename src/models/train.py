@@ -28,67 +28,63 @@ def train_model(data_path: str, base_config_path: str,
     mlflow.set_tracking_uri(tracking_uri)
     mlflow.set_experiment(experiment_name)
 
-    print("="*70)
     print("RANDOM FOREST TRAINING WITH SMOTE")
-    print("="*70)
     print(f"Experiment: {experiment_name}")
     print(f"Description: {config['experiment']['description']}")
     print(f"Model Type: {config['model']['type']}")
     print(f"Imbalance Method: {config['imbalance']['method']}")
-    print(f"MLflow Tracking: {tracking_uri}")
-    print(f"  (from {uri_source})")
-    print("="*70)
+    print(f"MLflow Tracking: {tracking_uri} from {uri_source}")
 
-    print(f"\nLoading data from {data_path}...")
+    print(f"Loading data from {data_path}...")
     df = pd.read_csv(data_path)
 
     if config['data'].get('sample_size'):
         sample_size = config['data']['sample_size']
-        print(f"  Using sample size: {sample_size}")
+        print(f"Using sample size: {sample_size}")
         df = df.sample(n=min(sample_size, len(df)), random_state=config['data']['random_state'])
 
-    print(f"  Dataset shape: {df.shape}")
-    print(f"  Fraud cases: {df['Class'].sum()} ({df['Class'].mean()*100:.3f}%)")
-    print(f"  Normal cases: {(df['Class']==0).sum()} ({(df['Class']==0).mean()*100:.3f}%)")
+    print(f"Dataset shape: {df.shape}")
+    print(f"Fraud cases: {df['Class'].sum()} ({df['Class'].mean()*100:.3f}%)")
+    print(f"Normal cases: {(df['Class']==0).sum()} ({(df['Class']==0).mean()*100:.3f}%)")
 
     data_x = df.drop('Class', axis=1)
     y = df['Class']
 
-    print(f"\nFeature Engineering...")
+    print(f"Feature Engineering...")
 
     if config['features']['time_features']['enabled']:
-        print("  Adding time-based features...")
+        print("Adding time-based features...")
 
         if config['features']['time_features'].get('hour_of_day', False):
             data_x['hour_of_day'] = (data_x['Time'] / 3600) % 24
-            print("    hour_of_day")
+            print("hour_of_day")
 
         if config['features']['time_features'].get('day_period', False):
             hour = (data_x['Time'] / 3600) % 24
             data_x['day_period'] = pd.cut(hour, bins=[0, 6, 12, 18, 24],
                                      labels=[0, 1, 2, 3], include_lowest=True)
-            print("    day_period")
+            print("day_period")
 
         if config['features']['time_features'].get('time_since_start', False):
             data_x['time_since_start'] = data_x['Time'] / data_x['Time'].max()
-            print("    time_since_start")
+            print("time_since_start")
 
     if config['features']['amount_features']['enabled']:
-        print("  Adding amount-based features...")
+        print("Adding amount-based features...")
 
         if config['features']['amount_features'].get('log_transform', False):
             data_x['log_amount'] = np.log1p(data_x['Amount'])
-            print("    log_amount")
+            print("log_amount")
 
         if config['features']['amount_features'].get('standardize', False):
             from sklearn.preprocessing import StandardScaler
             scaler = StandardScaler()
             data_x['amount_scaled'] = scaler.fit_transform(data_x[['Amount']])
-            print("    amount_scaled")
+            print("amount_scaled")
 
-    print(f"  Total features: {data_x.shape[1]}")
+    print(f"Total features: {data_x.shape[1]}")
 
-    print(f"\nSplitting data...")
+    print(f"Splitting data...")
     data_x_train, data_x_test, y_train, y_test = train_test_split(
         data_x, y,
         test_size=config['data']['splits']['test_size'],
@@ -96,10 +92,10 @@ def train_model(data_path: str, base_config_path: str,
         random_state=config['data']['random_state']
     )
 
-    print(f"  Training set: {len(data_x_train):,} samples ({y_train.sum():,} fraud)")
-    print(f"  Test set: {len(data_x_test):,} samples ({y_test.sum():,} fraud)")
+    print(f"Training set: {len(data_x_train):,} samples ({y_train.sum():,} fraud)")
+    print(f"Test set: {len(data_x_test):,} samples ({y_test.sum():,} fraud)")
 
-    print(f"\nApplying SMOTE...")
+    print(f"Applying SMOTE...")
     smote_config = config['imbalance']['smote']
 
     smote = SMOTE(
@@ -108,18 +104,18 @@ def train_model(data_path: str, base_config_path: str,
         random_state=smote_config['random_state']
     )
 
-    print(f"  Sampling strategy: {smote_config['sampling_strategy']}")
-    print(f"  K neighbors: {smote_config['k_neighbors']}")
-    print(f"  Before SMOTE: {len(data_x_train):,} samples ({y_train.sum():,} fraud)")
+    print(f"Sampling strategy: {smote_config['sampling_strategy']}")
+    print(f"K neighbors: {smote_config['k_neighbors']}")
+    print(f"Before SMOTE: {len(data_x_train):,} samples ({y_train.sum():,} fraud)")
 
     data_x_train_resampled, y_train_resampled = smote.fit_resample(data_x_train, y_train)
 
-    print(f"  After SMOTE: {len(data_x_train_resampled):,} samples ({y_train_resampled.sum():,} fraud)")
-    print(f"  New fraud rate: {y_train_resampled.mean()*100:.2f}%")
+    print(f"After SMOTE: {len(data_x_train_resampled):,} samples ({y_train_resampled.sum():,} fraud)")
+    print(f"New fraud rate: {y_train_resampled.mean()*100:.2f}%")
 
     with mlflow.start_run() as run:
-        print(f"\nStarting training...")
-        print(f"  MLflow Run ID: {run.info.run_id}")
+        print(f"Starting training...")
+        print(f"MLflow Run ID: {run.info.run_id}")
 
         mlflow.log_params({
             'experiment_name': experiment_name,
@@ -139,13 +135,13 @@ def train_model(data_path: str, base_config_path: str,
         if model_params['max_features'] == 'None':
             model_params['max_features'] = None
 
-        print(f"\nTraining Random Forest...")
-        print(f"  Number of trees: {model_params['n_estimators']}")
-        print(f"  Max depth: {model_params['max_depth']}")
-        print(f"  Min samples split: {model_params['min_samples_split']}")
-        print(f"  Min samples leaf: {model_params['min_samples_leaf']}")
-        print(f"  Max features: {model_params['max_features']}")
-        print(f"  Bootstrap: {model_params['bootstrap']}")
+        print(f"Training Random Forest...")
+        print(f"Number of trees: {model_params['n_estimators']}")
+        print(f"Max depth: {model_params['max_depth']}")
+        print(f"Min samples split: {model_params['min_samples_split']}")
+        print(f"Min samples leaf: {model_params['min_samples_leaf']}")
+        print(f"Max features: {model_params['max_features']}")
+        print(f"Bootstrap: {model_params['bootstrap']}")
 
         model = RandomForestClassifier(
             **model_params,
@@ -160,7 +156,7 @@ def train_model(data_path: str, base_config_path: str,
         if model_params.get('oob_score', False) and hasattr(model, 'oob_score_'):
             oob_score = model.oob_score_
             mlflow.log_metric('oob_score', oob_score)
-            print(f"  OOB Score: {oob_score:.4f}")
+            print(f"OOB Score: {oob_score:.4f}")
 
         if config['mlflow'].get('log_feature_importance', False):
             feature_importance = pd.DataFrame({
@@ -168,14 +164,14 @@ def train_model(data_path: str, base_config_path: str,
                 'importance': model.feature_importances_
             }).sort_values('importance', ascending=False)
 
-            print(f"\nTop 10 Feature Importances:")
+            print(f"Top 10 Feature Importances:")
             for idx, row in feature_importance.head(10).iterrows():
-                print(f"  {row['feature']:20s}: {row['importance']:.6f}")
+                print(f"{row['feature']:20s}: {row['importance']:.6f}")
 
             feature_importance.to_csv('feature_importance.csv', index=False)
             mlflow.log_artifact('feature_importance.csv')
 
-        print(f"\nQuick evaluation on test set...")
+        print(f"Quick evaluation on test set...")
         y_pred = model.predict(data_x_test)
         y_pred_proba = model.predict_proba(data_x_test)[:, 1]
 
@@ -185,17 +181,15 @@ def train_model(data_path: str, base_config_path: str,
         test_precision = precision_score(y_test, y_pred)
         test_f1 = f1_score(y_test, y_pred)
 
-        print(f"  Recall: {test_recall:.4f}")
-        print(f"  Precision: {test_precision:.4f}")
-        print(f"  F1 Score: {test_f1:.4f}")
+        print(f"Recall: {test_recall:.4f}")
+        print(f"Precision: {test_precision:.4f}")
+        print(f"F1 Score: {test_f1:.4f}")
 
-        print("\n" + "="*70)
         print(classification_report(y_test, y_pred, target_names=['Normal', 'Fraud']))
-        print("="*70)
 
         if config['mlflow']['log_models']:
             mlflow.sklearn.log_model(model, "model")
-            print(f"\nModel logged to MLflow")
+            print(f"Model logged to MLflow")
 
         with open('run_id.txt', 'w') as f:
             f.write(run.info.run_id)
@@ -205,9 +199,9 @@ def train_model(data_path: str, base_config_path: str,
                 f.write(f"RUN_ID={run.info.run_id}\n")
                 f.write(f"MODEL_URI=runs:/{run.info.run_id}/model\n")
 
-        print(f"\nTraining pipeline completed successfully")
-        print(f"   MLflow Run ID: {run.info.run_id}")
-        print(f"   Model URI: runs:/{run.info.run_id}/model")
+        print(f"Training pipeline completed successfully")
+        print(f"MLflow Run ID: {run.info.run_id}")
+        print(f"Model URI: runs:/{run.info.run_id}/model")
 
         return run.info.run_id
 
