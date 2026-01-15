@@ -14,7 +14,7 @@ on:
         default: 'Manual training run with Random Forest and SMOTE'
 
       use_sample_data:
-        description: 'Use sample dataset for quick testing?'
+        description: 'Use sample dataset for quick testing'
         type: boolean
         required: false
         default: false
@@ -71,13 +71,13 @@ on:
         default: '5'
 
       enable_time_features:
-        description: 'Enable time-based feature engineering?'
+        description: 'Enable time-based feature engineering'
         type: boolean
         required: false
         default: true
 
       enable_amount_features:
-        description: 'Enable amount-based feature engineering?'
+        description: 'Enable amount-based feature engineering'
         type: boolean
         required: false
         default: true
@@ -98,13 +98,13 @@ on:
         default: '0.95'
 
       skip_quality_gates:
-        description: 'Skip quality gates (experimental mode)?'
+        description: 'Skip quality gates (experimental mode)'
         type: boolean
         required: false
         default: false
 
       auto_deploy:
-        description: 'Auto-deploy to staging if quality gates pass?'
+        description: 'Auto-deploy to staging if quality gates pass'
         type: boolean
         required: false
         default: false
