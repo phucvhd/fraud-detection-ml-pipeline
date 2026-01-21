@@ -150,6 +150,8 @@ def train_model(data_path: str, base_config_path: str,
             verbose=1
         )
 
+        print("Labels in y_train_resampled:", np.unique(y_train_resampled))
+
         model.fit(data_x_train_resampled, y_train_resampled)
 
         print("Training completed")
