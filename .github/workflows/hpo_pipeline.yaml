@@ -92,7 +92,9 @@ jobs:
         # Use a dedicated tune.py script that uses parent-child MLflow runs
         python src/models/tune.py \
           --data-path ./data/creditcard.csv \
-          --hpo-config config/hpo_config.yaml
+          --base-config config/hpo_config.yaml \
+          --override-config config/override_config.yaml \
+          --mlflow-tracking-uri $MLFLOW_URI
         
         # Assume the script outputs the best run info to a json
         BEST_RUN_ID=$(jq -r '.best_run_id' hpo_results.json)

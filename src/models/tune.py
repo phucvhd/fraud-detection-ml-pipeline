@@ -12,11 +12,14 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import RandomizedSearchCV, TimeSeriesSplit
 from sklearn.metrics import recall_score, precision_score, f1_score, precision_recall_curve, auc
 
+from src.utils.config_manager import load_config
+
 
 class HPOTuner:
-    def __init__(self, config_path, data_path):
-        with open(config_path, 'r') as f:
-            self.config = yaml.safe_load(f)
+    def __init__(self, data_path: str, base_config_path: str,
+                override_config_path: str, mlflow_tracking_uri: str = None):
+        self.config = load_config(base_config_path, override_config_path)
+        self.mlflow_tracking_uri = mlflow_tracking_uri
         self.data_path = data_path
 
     def load_and_prep_data(self):
@@ -40,7 +43,7 @@ class HPOTuner:
         X, y = self.load_and_prep_data()
         param_grid = self.get_param_grid()
 
-        mlflow.set_tracking_uri(self.config['experiment']['tracking_uri'])
+        mlflow.set_tracking_uri(self.mlflow_tracking_uri)
         mlflow.set_experiment(self.config['experiment']['name'])
 
         tscv = TimeSeriesSplit(n_splits=self.config['tuner']['cv_splits'])
@@ -80,11 +83,19 @@ class HPOTuner:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--hpo-config", required=True, help="Path to the HPO YAML config")
-    parser.add_argument("--data-path", required=True, help="Path to the creditcard.csv file")
+    parser = argparse.ArgumentParser(description='Train Random Forest with SMOTE')
+    parser.add_argument('--data-path', required=True, help='Path to training data CSV')
+    parser.add_argument('--base-config', required=True, help='Path to base config YAML')
+    parser.add_argument('--override-config', required=False, help='Path to override config YAML')
+    parser.add_argument('--mlflow-tracking-uri', required=False, default=None,
+                        help='MLflow tracking URI (use "databricks" for Databricks)')
 
     args = parser.parse_args()
 
-    tuner = HPOTuner(args.hpo_config, args.data_path)
+    tuner = HPOTuner(
+        args.data_path,
+        args.base_config,
+        args.override_config,
+        args.mlflow_tracking_uri
+    )
     tuner.run()
