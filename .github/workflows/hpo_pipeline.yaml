@@ -70,8 +70,8 @@ jobs:
     - name: Prepare HPO Configuration
       id: hpo_config
       run: |
-        # Construct the YAML override for tuning
-        cat > config/hpo_config.yaml << EOF
+        echo "Preparing configuration with user inputs..."
+        cat > config/override_config.yaml << 'EOF'
         experiment:
           name: "rf-tuning-2026"
           tracking_uri: "${{ secrets.MLFLOW_TRACKING_URI }}"
