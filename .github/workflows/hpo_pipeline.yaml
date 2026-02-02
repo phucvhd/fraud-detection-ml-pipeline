@@ -29,11 +29,11 @@ on:
 
       max_depth_space:
         description: 'Max Depth range (e.g. 10,15,20,25)'
-        default: '10,15,20,25,30'
+        default: '[10,15,20,25,30]'
 
       class_weight_space:
         description: 'Fraud weight multipliers to test (e.g. 1,5,10,20)'
-        default: '1,5,10,15,20'
+        default: '[1,5,10,15,20]'
 
 env:
   AWS_REGION: us-east-1
@@ -84,8 +84,8 @@ jobs:
           n_jobs: -1
           param_dist:
             random_forest:
-              max_depth: ${{ github.event.inputs.max_depth == 'null' && 'null' || github.event.inputs.max_depth || '10,15,20,25,30' }}
-              class_weight_multiplier: ${{ github.event.inputs.class_weight_multiplier == 'null' && 'null' || github.event.inputs.class_weight_multiplier || '1,5,10,15,20' }}
+              max_depth: ${{ github.event.inputs.max_depth_space == 'null' && 'null' || github.event.inputs.max_depth_space || '[10,15,20,25,30]' }}
+              class_weight_multiplier: ${{ github.event.inputs.class_weight_space == 'null' && 'null' || github.event.inputs.class_weight_space || '[1,5,10,15,20]' }}
         output:
           results_json: "hpo_results.json"
         EOF
