@@ -1,6 +1,5 @@
 experiment:
   name: "fraud-detection-hpo-rf"
-  tracking_uri: "${MLFLOW_TRACKING_URI}"
 
 tuner:
   strategy: "random_search"
