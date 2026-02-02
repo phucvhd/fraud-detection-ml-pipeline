@@ -11,8 +11,9 @@ import mlflow.sklearn
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import RandomizedSearchCV, TimeSeriesSplit
 from sklearn.metrics import recall_score, precision_score, f1_score, precision_recall_curve, auc
-
-from src.utils.config_manager import load_config
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
+from src.utils.config_manager import load_config, get_mlflow_tracking_uri
 
 
 class HPOTuner:
