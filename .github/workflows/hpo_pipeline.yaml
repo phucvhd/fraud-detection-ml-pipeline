@@ -1,0 +1,111 @@
+name: ML Hyperparameter Tuning Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      experiment_name:
+        description: 'HPO Experiment Name'
+        required: false
+        default: 'rf-tuning-2026'
+
+      search_strategy:
+        description: 'Optimization Strategy'
+        type: choice
+        required: true
+        default: 'random'
+        options:
+          - random
+          - grid
+
+      n_iter:
+        description: 'Number of parameter settings sampled (for random search)'
+        required: false
+        default: '50'
+
+      cv_splits:
+        description: 'Number of TimeSeriesSplits'
+        required: false
+        default: '5'
+
+      max_depth_space:
+        description: 'Max Depth range (e.g. 10,15,20,25)'
+        default: '10,15,20,25,30'
+
+      class_weight_space:
+        description: 'Fraud weight multipliers to test (e.g. 1,5,10,20)'
+        default: '1,5,10,15,20'
+
+env:
+  AWS_REGION: us-east-1
+  MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+  S3_DATA_BUCKET: ${{ secrets.S3_DATA_BUCKET }}
+
+jobs:
+  tune-model:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+        pip install databricks-cli jq
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Download data from S3
+      run: aws s3 cp s3://${{ env.S3_DATA_BUCKET }}/data/creditcard.csv ./data/creditcard.csv
+
+    - name: Prepare HPO Configuration
+      id: hpo_config
+      run: |
+        # Construct the YAML override for tuning
+        cat > config/hpo_config.yaml << EOF
+        experiment:
+          name: "${{ github.event.inputs.experiment_name }}"
+        tuner:
+          strategy: "${{ github.event.inputs.search_strategy }}"
+          n_iter: ${{ github.event.inputs.n_iter }}
+          cv: ${{ github.event.inputs.cv_splits }}
+          param_grid:
+            max_depth: [${{ github.event.inputs.max_depth_space }}]
+            class_weight: [1, 5, 10, 15, 20] # Logic inside tuner script maps this to {0:1, 1:X}
+        EOF
+
+    - name: Run Hyperparameter Tuning
+      id: run_hpo
+      env:
+        DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+        DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+      run: |
+        # Use a dedicated tune.py script that uses parent-child MLflow runs
+        python src/models/tune.py \
+          --data-path ./data/creditcard.csv \
+          --hpo-config config/hpo_config.yaml
+        
+        # Assume the script outputs the best run info to a json
+        BEST_RUN_ID=$(jq -r '.best_run_id' hpo_results.json)
+        echo "best_run_id=$BEST_RUN_ID" >> $GITHUB_OUTPUT
+
+    - name: Create Tuning Summary
+      if: always()
+      run: |
+        cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+        ## 🧪 HPO Results Summary
+        **Strategy:** ${{ github.event.inputs.search_strategy }}
+        **Iterations:** ${{ github.event.inputs.n_iter }}
+        **Best MLflow Run:** [View Parent Run](${{ env.MLFLOW_TRACKING_URI }}/#/experiments/runs/${{ steps.run_hpo.outputs.best_run_id }})
+        
+        Check MLflow for the parallel coordinate plot to see parameter correlations.
+        EOF
