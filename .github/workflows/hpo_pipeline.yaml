@@ -90,6 +90,9 @@ jobs:
         DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
       run: |
         # Use a dedicated tune.py script that uses parent-child MLflow runs
+        
+        MLFLOW_URI="databricks"
+        
         python src/models/tune.py \
           --data-path ./data/creditcard.csv \
           --base-config config/hpo_config.yaml \
