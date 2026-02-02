@@ -81,9 +81,10 @@ class HPOTuner:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--hpo-config", required=True)
-    parser.add_argument("--data-path", required=True)
-    args = parser.parse_core()
+    parser.add_argument("--hpo-config", required=True, help="Path to the HPO YAML config")
+    parser.add_argument("--data-path", required=True, help="Path to the creditcard.csv file")
+
+    args = parser.parse_args()
 
     tuner = HPOTuner(args.hpo_config, args.data_path)
     tuner.run()
