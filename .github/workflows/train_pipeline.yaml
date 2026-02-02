@@ -8,11 +8,6 @@ on:
         required: false
         default: ''
 
-      experiment_description:
-        description: 'Experiment description'
-        required: false
-        default: 'Manual training run with Random Forest and SMOTE'
-
       use_sample_data:
         description: 'Use sample dataset for quick testing'
         type: boolean
@@ -187,7 +182,6 @@ jobs:
         cat > config/override_config.yaml << 'EOF'
         experiment:
           name: "${{ github.event.inputs.experiment_name || format('auto-run-{0}', github.run_number) }}"
-          description: "${{ github.event.inputs.experiment_description }}"
         
         data:
           sample_size: ${{ github.event.inputs.use_sample_data == 'true' && github.event.inputs.sample_size || 'null' }}
