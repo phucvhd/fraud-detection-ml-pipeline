@@ -44,8 +44,15 @@ class HPOTuner:
         X, y = self.load_and_prep_data()
         param_grid = self.get_param_grid()
 
+        experiment_name = self.config['experiment']['name']
+
+        if self.mlflow_tracking_uri == "databricks":
+            user_email = os.environ.get('DATABRICKS_USER')
+            experiment_name = f"/Users/{user_email}/fraud-detection/{experiment_name}"
+            print(f"Using Databricks experiment path: {experiment_name}")
+
         mlflow.set_tracking_uri(self.mlflow_tracking_uri)
-        mlflow.set_experiment(self.config['experiment']['name'])
+        mlflow.set_experiment(experiment_name)
 
         tscv = TimeSeriesSplit(n_splits=self.config['tuner']['cv_splits'])
 
