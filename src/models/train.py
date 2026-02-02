@@ -109,7 +109,6 @@ def train_model(data_path: str, base_config_path: str,
     print(f"Before SMOTE: {len(data_x_train):,} samples ({y_train.sum():,} fraud)")
 
     data_x_train_resampled, y_train_resampled = smote.fit_resample(data_x_train, y_train)
-    y_train_resampled = y_train_resampled.astype(int)
 
     print(f"After SMOTE: {len(data_x_train_resampled):,} samples ({y_train_resampled.sum():,} fraud)")
     print(f"New fraud rate: {y_train_resampled.mean()*100:.2f}%")
@@ -149,8 +148,6 @@ def train_model(data_path: str, base_config_path: str,
             random_state=config['data']['random_state'],
             verbose=1
         )
-
-        print("Labels in y_train_resampled:", np.unique(y_train_resampled))
 
         model.fit(data_x_train_resampled, y_train_resampled)
 
