@@ -355,7 +355,8 @@ jobs:
           --output-file model.tar.gz \
           --mlflow-tracking-uri $MLFLOW_URI
         
-        MODEL_URI="s3://${{ env.S3_MODEL_BUCKET }}/models/fraud-rf-smote-${steps.train.outputs.run_id}.tar.gz"
+        RUN_ID=${{ steps.train.outputs.run_id }}
+        MODEL_URI="s3://${{ env.S3_MODEL_BUCKET }}/models/fraud-rf-smote-${RUN_ID}.tar.gz"
         
         aws s3 cp model.tar.gz "$MODEL_URI"
         
