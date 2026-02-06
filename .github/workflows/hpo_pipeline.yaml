@@ -35,6 +35,18 @@ on:
         description: 'Fraud weight multipliers to test (e.g. 1,5,10,20)'
         default: '[1,5,10,15,20]'
 
+      min_samples_split:
+        default: '[2,5,10]'
+
+      min_samples_leaf:
+        default: '[1,2,5]'
+
+      max_features:
+        default: '[sqrt, log2]'
+
+      max_samples:
+        default: '[0.7,0.8,0.9,null]'
+
 env:
   AWS_REGION: us-east-1
   MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
@@ -86,6 +98,10 @@ jobs:
             random_forest:
               max_depth: ${{ github.event.inputs.max_depth_space == 'null' && 'null' || github.event.inputs.max_depth_space || '[10,15,20,25,30]' }}
               class_weight_multiplier: ${{ github.event.inputs.class_weight_space == 'null' && 'null' || github.event.inputs.class_weight_space || '[1,5,10,15,20]' }}
+              min_samples_split: ${{ github.event.inputs.min_samples_split == 'null' && 'null' || github.event.inputs.min_samples_split || '[1,5,10,15,20]' }}
+              min_samples_leaf: ${{ github.event.inputs.min_samples_leaf == 'null' && 'null' || github.event.inputs.min_samples_leaf || '[ 1, 2, 5 ]' }}
+              max_features: ${{ github.event.inputs.max_features == 'null' && 'null' || github.event.inputs.max_features || '[ sqrt, log2 ]' }}
+              max_samples: ${{ github.event.inputs.max_samples == 'null' && 'null' || github.event.inputs.max_samples || '[ 0.7, 0.8, 0.9, null ]' }}
         output:
           results_json: "hpo_results.json"
         EOF
