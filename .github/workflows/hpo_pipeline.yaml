@@ -1,4 +1,4 @@
-name: ML Hyperparameter Tuning Pipeline
+name: Hyperparameter Tuning
 
 on:
   workflow_dispatch:
@@ -6,7 +6,6 @@ on:
       experiment_name:
         description: 'HPO Experiment Name'
         required: false
-        default: 'rf-tuning-2026'
 
       search_strategy:
         description: 'Optimization Strategy'
@@ -28,15 +27,15 @@ on:
         default: '5'
 
       max_depth_space:
-        description: 'Max Depth range (e.g. 10,15,20,25)'
+        description: 'Max Depth range'
         default: '[10,15,20,25,30]'
 
       class_weight_space:
-        description: 'Fraud weight multipliers to test (e.g. 1,5,10,20)'
+        description: 'Fraud weight multipliers to test'
         default: '[1,5,10,15,20]'
 
       n_estimators:
-        default: '[ 200, 300, 400, 500 ]'
+        default: '[200, 300, 400, 500]'
 
       min_samples_split:
         default: '[2,5,10]'
@@ -88,7 +87,7 @@ jobs:
         echo "Preparing configuration with user inputs..."
         cat > config/override_config.yaml << 'EOF'
         experiment:
-          name: "rf-tuning-2026"
+          name: "${{ github.event.inputs.experiment_name || format('auto-run-{0}', github.run_number) }}"
           tracking_uri: "${{ secrets.MLFLOW_TRACKING_URI }}"
         tuner:
           strategy: "random_search"
@@ -152,7 +151,8 @@ jobs:
           --output-file model.tar.gz \
           --mlflow-tracking-uri $MLFLOW_URI
         
-        MODEL_URI="s3://${{ env.S3_MODEL_BUCKET }}/models/fraud-rf-smote-${steps.run_hpo.outputs.best_run_id}.tar.gz"
+        RUN_ID=${{ steps.run_hpo.outputs.best_run_id }}
+        MODEL_URI="s3://${{ env.S3_MODEL_BUCKET }}/models/${steps.run_hpo.outputs.best_run_id}.tar.gz"
         
         aws s3 cp model.tar.gz "$MODEL_URI"
         

@@ -1,4 +1,4 @@
-name: ML Training Pipeline
+name: Training
 
 on:
   workflow_dispatch:
@@ -356,7 +356,7 @@ jobs:
           --mlflow-tracking-uri $MLFLOW_URI
         
         RUN_ID=${{ steps.train.outputs.run_id }}
-        MODEL_URI="s3://${{ env.S3_MODEL_BUCKET }}/models/fraud-rf-smote-${RUN_ID}.tar.gz"
+        MODEL_URI="s3://${{ env.S3_MODEL_BUCKET }}/models/${RUN_ID}.tar.gz"
         
         aws s3 cp model.tar.gz "$MODEL_URI"
         
