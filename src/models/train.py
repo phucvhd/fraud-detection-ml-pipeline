@@ -8,6 +8,9 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
 from imblearn.over_sampling import SMOTE
 import sys
+
+from sklearn.preprocessing import StandardScaler
+
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 from src.utils.config_manager import load_config, get_mlflow_tracking_uri
 
@@ -77,7 +80,6 @@ def train_model(data_path: str, base_config_path: str,
             print("log_amount")
 
         if config['features']['amount_features'].get('standardize', False):
-            from sklearn.preprocessing import StandardScaler
             scaler = StandardScaler()
             data_x['amount_scaled'] = scaler.fit_transform(data_x[['Amount']])
             print("amount_scaled")
