@@ -35,6 +35,9 @@ on:
         description: 'Fraud weight multipliers to test (e.g. 1,5,10,20)'
         default: '[1,5,10,15,20]'
 
+      n_estimators:
+        default: '[ 200, 300, 400, 500 ]'
+
       min_samples_split:
         default: '[2,5,10]'
 
@@ -98,6 +101,7 @@ jobs:
             random_forest:
               max_depth: ${{ github.event.inputs.max_depth_space == 'null' && 'null' || github.event.inputs.max_depth_space || '[10,15,20,25,30]' }}
               class_weight_multiplier: ${{ github.event.inputs.class_weight_space == 'null' && 'null' || github.event.inputs.class_weight_space || '[1,5,10,15,20]' }}
+              n_estimators: ${{ github.event.inputs.n_estimators == 'null' && 'null' || github.event.inputs.n_estimators || '[ 200, 300, 400, 500 ]' }}
               min_samples_split: ${{ github.event.inputs.min_samples_split == 'null' && 'null' || github.event.inputs.min_samples_split || '[1,5,10,15,20]' }}
               min_samples_leaf: ${{ github.event.inputs.min_samples_leaf == 'null' && 'null' || github.event.inputs.min_samples_leaf || '[ 1, 2, 5 ]' }}
               max_features: ${{ github.event.inputs.max_features == 'null' && 'null' || github.event.inputs.max_features || '[ sqrt, log2 ]' }}
