@@ -144,11 +144,11 @@ jobs:
         MLFLOW_URI="databricks"
 
         python src/deploy/package_model.py \
-          --mlflow-run-id ${{ steps.train.outputs.run_id }} \
+          --mlflow-run-id ${{ steps.run_hpo.outputs.best_run_id }} \
           --output-file model.tar.gz \
           --mlflow-tracking-uri $MLFLOW_URI
         
-        MODEL_URI="s3://${{ env.S3_MODEL_BUCKET }}/models/fraud-rf-smote-${steps.train.outputs.run_id}.tar.gz"
+        MODEL_URI="s3://${{ env.S3_MODEL_BUCKET }}/models/fraud-rf-smote-${steps.run_hpo.outputs.best_run_id}.tar.gz"
         
         aws s3 cp model.tar.gz "$MODEL_URI"
         
