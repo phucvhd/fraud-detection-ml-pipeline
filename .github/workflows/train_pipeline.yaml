@@ -338,7 +338,7 @@ jobs:
         
         echo "Model passed all quality gates"
 
-    - name: Package model for SageMaker
+    - name: Package model
       id: package
       if: success()
       env:
@@ -346,7 +346,7 @@ jobs:
         DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
         DATABRICKS_USER: ${{ secrets.DATABRICKS_USER }}
       run: |
-        echo "Packaging Random Forest model for SageMaker..."
+        echo "Packaging model ..."
         
         MLFLOW_URI="databricks"
 

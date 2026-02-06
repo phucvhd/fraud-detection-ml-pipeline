@@ -131,6 +131,30 @@ jobs:
         BEST_RUN_ID=$(jq -r '.best_run_id' hpo_results.json)
         echo "best_run_id=$BEST_RUN_ID" >> $GITHUB_OUTPUT
 
+    - name: Package model
+      id: package
+      if: success()
+      env:
+        DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+        DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+        DATABRICKS_USER: ${{ secrets.DATABRICKS_USER }}
+      run: |
+        echo "Packaging model ..."
+        
+        MLFLOW_URI="databricks"
+
+        python src/deploy/package_model.py \
+          --mlflow-run-id ${{ steps.train.outputs.run_id }} \
+          --output-file model.tar.gz \
+          --mlflow-tracking-uri $MLFLOW_URI
+        
+        MODEL_URI="s3://${{ env.S3_MODEL_BUCKET }}/models/fraud-rf-smote-${steps.train.outputs.run_id}.tar.gz"
+        
+        aws s3 cp model.tar.gz "$MODEL_URI"
+        
+        echo "model_uri=$MODEL_URI" >> $GITHUB_OUTPUT
+        echo "Model packaged and uploaded to $MODEL_URI"
+
     - name: Create Tuning Summary
       if: always()
       run: |
