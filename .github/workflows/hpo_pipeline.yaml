@@ -53,6 +53,7 @@ env:
   AWS_REGION: us-east-1
   MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
   S3_DATA_BUCKET: ${{ secrets.S3_DATA_BUCKET }}
+  S3_MODEL_BUCKET: ${{ secrets.S3_MODEL_BUCKET }}
 
 jobs:
   tune-model:
