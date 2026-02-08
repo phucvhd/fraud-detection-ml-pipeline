@@ -152,7 +152,7 @@ jobs:
           --mlflow-tracking-uri $MLFLOW_URI
         
         RUN_ID=${{ steps.run_hpo.outputs.best_run_id }}
-        MODEL_URI="s3://${{ env.S3_MODEL_BUCKET }}/models/${steps.run_hpo.outputs.best_run_id}.tar.gz"
+        MODEL_URI="s3://${{ env.S3_MODEL_BUCKET }}/models/${RUN_ID}.tar.gz"
         
         aws s3 cp model.tar.gz "$MODEL_URI"
         
