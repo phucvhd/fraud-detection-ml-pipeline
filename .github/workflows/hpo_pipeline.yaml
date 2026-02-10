@@ -7,6 +7,18 @@ on:
         description: 'HPO Experiment Name'
         required: false
 
+      enable_time_features:
+        description: 'Enable time-based feature engineering'
+        type: boolean
+        required: false
+        default: true
+
+      enable_amount_features:
+        description: 'Enable amount-based feature engineering'
+        type: boolean
+        required: false
+        default: true
+
       search_strategy:
         description: 'Optimization Strategy'
         type: choice
@@ -90,6 +102,11 @@ jobs:
         experiment:
           name: "${{ github.event.inputs.experiment_name || format('auto-run-{0}', github.run_number) }}"
           tracking_uri: "${{ secrets.MLFLOW_TRACKING_URI }}"
+        features:
+          time_features:
+            enabled: ${{ github.event.inputs.enable_time_features || 'true' }}
+          amount_features:
+            enabled: ${{ github.event.inputs.enable_amount_features || 'true' }}
         tuner:
           strategy: "random_search"
           n_iter: ${{ github.event.inputs.n_iter || '50' }}
