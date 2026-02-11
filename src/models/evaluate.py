@@ -8,10 +8,12 @@ from sklearn.metrics import (
     precision_score, recall_score, f1_score,
     roc_auc_score, average_precision_score,
     confusion_matrix, classification_report,
-    precision_recall_curve, roc_curve
+    precision_recall_curve, roc_curve, ConfusionMatrixDisplay
 )
 import matplotlib.pyplot as plt
 import sys
+
+from sklearn.preprocessing import StandardScaler
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 from src.utils.config_manager import load_config, get_mlflow_tracking_uri
@@ -43,10 +45,10 @@ def evaluate_model(model_run_id: str, data_path: str,
         raise
 
     print(f"Loading evaluation data...")
-    df = pd.read_csv(data_path)
+    df_test = pd.read_csv(data_path)
 
-    test_size = int(len(df) * config["data"]["splits"]["test_size"])
-    df_test = df.tail(test_size)
+    # test_size = int(len(df) * config["data"]["splits"]["test_size"])
+    # df_test = df.tail(test_size)
 
     data_x_test = df_test.drop("Class", axis=1)
     data_y_test = df_test["Class"]
@@ -73,9 +75,8 @@ def evaluate_model(model_run_id: str, data_path: str,
             data_x_test["log_amount"] = np.log1p(data_x_test["Amount"])
 
         if config["features"]["amount_features"].get("standardize", False):
-            from sklearn.preprocessing import StandardScaler
             scaler = StandardScaler()
-            scaler.fit(df[["Amount"]])
+            scaler.fit(df_test[["Amount"]])
             data_x_test["amount_scaled"] = scaler.transform(data_x_test[["Amount"]])
 
     print(f"Features: {data_x_test.shape[1]}")
@@ -148,7 +149,6 @@ def evaluate_model(model_run_id: str, data_path: str,
             mlflow.log_artifact("roc_curve.png")
             plt.close()
 
-            from sklearn.metrics import ConfusionMatrixDisplay
             fig, ax = plt.subplots(figsize=(8, 6))
             ConfusionMatrixDisplay.from_predictions(data_y_test, data_y_pred,
                                                     display_labels=["Normal", "Fraud"],
