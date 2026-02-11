@@ -8,6 +8,9 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
 from imblearn.over_sampling import SMOTE
 import sys
+
+from sklearn.preprocessing import StandardScaler
+
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 from src.utils.config_manager import load_config, get_mlflow_tracking_uri
 
@@ -55,32 +58,26 @@ def train_model(data_path: str, base_config_path: str,
     if config['features']['time_features']['enabled']:
         print("Adding time-based features...")
 
-        if config['features']['time_features'].get('hour_of_day', False):
-            data_x['hour_of_day'] = (data_x['Time'] / 3600) % 24
-            print("hour_of_day")
+        data_x['hour_of_day'] = (data_x['Time'] / 3600) % 24
+        print("hour_of_day")
 
-        if config['features']['time_features'].get('day_period', False):
-            hour = (data_x['Time'] / 3600) % 24
-            data_x['day_period'] = pd.cut(hour, bins=[0, 6, 12, 18, 24],
-                                     labels=[0, 1, 2, 3], include_lowest=True)
-            print("day_period")
+        hour = (data_x['Time'] / 3600) % 24
+        data_x['day_period'] = pd.cut(hour, bins=[0, 6, 12, 18, 24],
+                                 labels=[0, 1, 2, 3], include_lowest=True)
+        print("day_period")
 
-        if config['features']['time_features'].get('time_since_start', False):
-            data_x['time_since_start'] = data_x['Time'] / data_x['Time'].max()
-            print("time_since_start")
+        data_x['time_since_start'] = data_x['Time'] / data_x['Time'].max()
+        print("time_since_start")
 
     if config['features']['amount_features']['enabled']:
         print("Adding amount-based features...")
 
-        if config['features']['amount_features'].get('log_transform', False):
-            data_x['log_amount'] = np.log1p(data_x['Amount'])
-            print("log_amount")
+        data_x['log_amount'] = np.log1p(data_x['Amount'])
+        print("log_amount")
 
-        if config['features']['amount_features'].get('standardize', False):
-            from sklearn.preprocessing import StandardScaler
-            scaler = StandardScaler()
-            data_x['amount_scaled'] = scaler.fit_transform(data_x[['Amount']])
-            print("amount_scaled")
+        scaler = StandardScaler()
+        data_x['amount_scaled'] = scaler.fit_transform(data_x[['Amount']])
+        print("amount_scaled")
 
     print(f"Total features: {data_x.shape[1]}")
 

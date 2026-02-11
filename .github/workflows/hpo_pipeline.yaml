@@ -1,4 +1,4 @@
-name: ML Hyperparameter Tuning Pipeline
+name: Hyperparameter Tuning
 
 on:
   workflow_dispatch:
@@ -6,7 +6,18 @@ on:
       experiment_name:
         description: 'HPO Experiment Name'
         required: false
-        default: 'rf-tuning-2026'
+
+      enable_time_features:
+        description: 'Enable time-based feature engineering'
+        type: boolean
+        required: false
+        default: true
+
+      enable_amount_features:
+        description: 'Enable amount-based feature engineering'
+        type: boolean
+        required: false
+        default: true
 
       search_strategy:
         description: 'Optimization Strategy'
@@ -28,17 +39,33 @@ on:
         default: '5'
 
       max_depth_space:
-        description: 'Max Depth range (e.g. 10,15,20,25)'
-        default: '10,15,20,25,30'
+        description: 'Max Depth range'
+        default: '[10,15,20,25,30]'
 
       class_weight_space:
-        description: 'Fraud weight multipliers to test (e.g. 1,5,10,20)'
-        default: '1,5,10,15,20'
+        description: 'Fraud weight multipliers to test'
+        default: '[1,5,10,15,20]'
+
+      n_estimators:
+        default: '[200, 300, 400, 500]'
+
+      min_samples_split:
+        default: '[2,5,10]'
+
+      min_samples_leaf:
+        default: '[1,2,5]'
+
+      max_features:
+        default: '[sqrt, log2]'
+
+      max_samples:
+        default: '[0.7,0.8,0.9,null]'
 
 env:
   AWS_REGION: us-east-1
   MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
   S3_DATA_BUCKET: ${{ secrets.S3_DATA_BUCKET }}
+  S3_MODEL_BUCKET: ${{ secrets.S3_MODEL_BUCKET }}
 
 jobs:
   tune-model:
@@ -70,33 +97,85 @@ jobs:
     - name: Prepare HPO Configuration
       id: hpo_config
       run: |
-        # Construct the YAML override for tuning
-        cat > config/hpo_config.yaml << EOF
+        echo "Preparing configuration with user inputs..."
+        cat > config/override_config.yaml << 'EOF'
         experiment:
-          name: "${{ github.event.inputs.experiment_name }}"
+          name: "${{ github.event.inputs.experiment_name || format('auto-run-{0}', github.run_number) }}"
+          tracking_uri: "${{ secrets.MLFLOW_TRACKING_URI }}"
+        features:
+          time_features:
+            enabled: ${{ github.event.inputs.enable_time_features || 'true' }}
+          amount_features:
+            enabled: ${{ github.event.inputs.enable_amount_features || 'true' }}
         tuner:
-          strategy: "${{ github.event.inputs.search_strategy }}"
-          n_iter: ${{ github.event.inputs.n_iter }}
-          cv: ${{ github.event.inputs.cv_splits }}
-          param_grid:
-            max_depth: [${{ github.event.inputs.max_depth_space }}]
-            class_weight: [1, 5, 10, 15, 20] # Logic inside tuner script maps this to {0:1, 1:X}
+          strategy: "random_search"
+          n_iter: ${{ github.event.inputs.n_iter || '50' }}
+          cv_splits: ${{ github.event.inputs.cv_splits || '5' }}
+          scoring: "recall"
+          random_state: 42
+          n_jobs: -1
+          param_dist:
+            random_forest:
+              max_depth: ${{ github.event.inputs.max_depth_space == 'null' && 'null' || github.event.inputs.max_depth_space || '[10,15,20,25,30]' }}
+              class_weight_multiplier: ${{ github.event.inputs.class_weight_space == 'null' && 'null' || github.event.inputs.class_weight_space || '[1,5,10,15,20]' }}
+              n_estimators: ${{ github.event.inputs.n_estimators == 'null' && 'null' || github.event.inputs.n_estimators || '[ 200, 300, 400, 500 ]' }}
+              min_samples_split: ${{ github.event.inputs.min_samples_split == 'null' && 'null' || github.event.inputs.min_samples_split || '[1,5,10,15,20]' }}
+              min_samples_leaf: ${{ github.event.inputs.min_samples_leaf == 'null' && 'null' || github.event.inputs.min_samples_leaf || '[ 1, 2, 5 ]' }}
+              max_features: ${{ github.event.inputs.max_features == 'null' && 'null' || github.event.inputs.max_features || '[ sqrt, log2 ]' }}
+              max_samples: ${{ github.event.inputs.max_samples == 'null' && 'null' || github.event.inputs.max_samples || '[ 0.7, 0.8, 0.9, null ]' }}
+        output:
+          results_json: "hpo_results.json"
         EOF
+        
+        echo "Configuration prepared"
+        echo "--- Override Config ---"
+        cat config/override_config.yaml
 
     - name: Run Hyperparameter Tuning
       id: run_hpo
       env:
         DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
         DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+        DATABRICKS_USER: ${{ secrets.DATABRICKS_USER }}
       run: |
         # Use a dedicated tune.py script that uses parent-child MLflow runs
+        
+        MLFLOW_URI="databricks"
+        
         python src/models/tune.py \
           --data-path ./data/creditcard.csv \
-          --hpo-config config/hpo_config.yaml
+          --base-config config/hpo_config.yaml \
+          --override-config config/override_config.yaml \
+          --mlflow-tracking-uri $MLFLOW_URI
         
         # Assume the script outputs the best run info to a json
         BEST_RUN_ID=$(jq -r '.best_run_id' hpo_results.json)
         echo "best_run_id=$BEST_RUN_ID" >> $GITHUB_OUTPUT
+
+    - name: Package model
+      id: package
+      if: success()
+      env:
+        DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+        DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+        DATABRICKS_USER: ${{ secrets.DATABRICKS_USER }}
+      run: |
+        echo "Packaging model ..."
+        
+        MLFLOW_URI="databricks"
+
+        python src/deploy/package_model.py \
+          --mlflow-run-id ${{ steps.run_hpo.outputs.best_run_id }} \
+          --output-file model.tar.gz \
+          --mlflow-tracking-uri $MLFLOW_URI
+        
+        RUN_ID=${{ steps.run_hpo.outputs.best_run_id }}
+        MODEL_URI="s3://${{ env.S3_MODEL_BUCKET }}/models/${RUN_ID}.tar.gz"
+        
+        aws s3 cp model.tar.gz "$MODEL_URI"
+        
+        echo "model_uri=$MODEL_URI" >> $GITHUB_OUTPUT
+        echo "Model packaged and uploaded to $MODEL_URI"
 
     - name: Create Tuning Summary
       if: always()

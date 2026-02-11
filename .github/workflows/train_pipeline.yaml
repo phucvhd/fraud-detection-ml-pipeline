@@ -1,4 +1,4 @@
-name: ML Training Pipeline
+name: Training
 
 on:
   workflow_dispatch:
@@ -338,7 +338,7 @@ jobs:
         
         echo "Model passed all quality gates"
 
-    - name: Package model for SageMaker
+    - name: Package model
       id: package
       if: success()
       env:
@@ -346,7 +346,7 @@ jobs:
         DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
         DATABRICKS_USER: ${{ secrets.DATABRICKS_USER }}
       run: |
-        echo "Packaging Random Forest model for SageMaker..."
+        echo "Packaging model ..."
         
         MLFLOW_URI="databricks"
 
@@ -355,8 +355,8 @@ jobs:
           --output-file model.tar.gz \
           --mlflow-tracking-uri $MLFLOW_URI
         
-        TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-        MODEL_URI="s3://${{ env.S3_MODEL_BUCKET }}/models/fraud-rf-smote-${TIMESTAMP}.tar.gz"
+        RUN_ID=${{ steps.train.outputs.run_id }}
+        MODEL_URI="s3://${{ env.S3_MODEL_BUCKET }}/models/${RUN_ID}.tar.gz"
         
         aws s3 cp model.tar.gz "$MODEL_URI"
         
