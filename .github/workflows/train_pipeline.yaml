@@ -180,12 +180,16 @@ jobs:
           yq -i ".quality_gates.metrics.precision.threshold = ${{ github.event.inputs.min_precision || '0.85' }}" config/override_config.yaml
           yq -i ".quality_gates.metrics.pr_auc.threshold = ${{ github.event.inputs.min_pr_auc || '0.95' }}" config/override_config.yaml
           yq -i ".quality_gates.experimental_mode = ${{ github.event.inputs.skip_quality_gates || 'false' }}" config/override_config.yaml
+          
+          echo "Configuration prepared"
+          echo "--- Override Config ---"
+          cat config/override_config.yaml
 
-      - name: Upload Config Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: finalized-config
-          path: config/override_config.yaml
+#      - name: Upload Config Artifact
+#        uses: actions/upload-artifact@v4
+#        with:
+#          name: finalized-config
+#          path: config/override_config.yaml
 
       - name: Train Model
         id: train_step
@@ -218,6 +222,13 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install Dependencies
         run: pip install -r requirements.txt jq
+
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Download Data
         run: aws s3 cp s3://${{ env.S3_DATA_BUCKET }}/data/creditcard_test.csv ./data/creditcard_test.csv
