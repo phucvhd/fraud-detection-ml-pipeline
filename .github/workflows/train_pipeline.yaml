@@ -313,7 +313,12 @@ jobs:
       - name: Create GitHub Summary
         run: |
           echo "## Run Results for ${{ needs.train.outputs.run_id }}" >> $GITHUB_STEP_SUMMARY
-          echo "Recall: ${{ needs.evaluate.outputs.recall }}" >> $GITHUB_STEP_SUMMARY
+          
+          echo "Evaluation Results:"
+          echo "  - Recall: ${{ needs.evaluate.outputs.recall }}" >> $GITHUB_STEP_SUMMARY
+          echo "  - Precision: ${{ needs.evaluate.outputs.precision }}" >> $GITHUB_STEP_SUMMARY
+          echo "  - F1 Score: ${{ needs.evaluate.outputs.f1 }}" >> $GITHUB_STEP_SUMMARY
+          echo "  - PR-AUC: ${{ needs.evaluate.outputs.pr_auc }}" >> $GITHUB_STEP_SUMMARY
 
 #  train-model:
 #    runs-on: ubuntu-latest
