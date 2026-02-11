@@ -193,13 +193,19 @@ jobs:
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
         run: |
-          python src/models/train.py \
-            --data-path ./data/creditcard.csv \
-            --mlflow-tracking-uri databricks
+          echo "Starting training..."
+
+          MLFLOW_URI="databricks"
           
-          # Crucial: Export the run_id to the job output
+          python src/models/train.py \
+          --data-path ./data/creditcard.csv \
+          --base-config config/train_config.yaml \
+          --override-config config/override_config.yaml \
+          --mlflow-tracking-uri $MLFLOW_URI
+          
           RUN_ID=$(cat run_id.txt)
           echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
+          echo "Training completed. MLflow Run ID: $RUN_ID"
 
   evaluate:
     needs: train
@@ -221,15 +227,35 @@ jobs:
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
         run: |
+          echo "Evaluating model performance..."
+          
+          MLFLOW_URI="databricks"
+          
           python src/models/evaluate.py \
-            --model-run-id ${{ needs.train.outputs.run_id }} \
-            --data-path ./data/creditcard_test.csv \
-            --output metrics.json
+          --model-run-id ${{ steps.train.outputs.run_id }} \
+          --data-path ./data/creditcard.csv \
+          --config config/train_config.yaml \
+          --override-config config/override_config.yaml \
+          --output metrics.json \
+          --mlflow-tracking-uri $MLFLOW_URI
 
-          # Store metrics in outputs for the Summary job
-          echo "recall=$(jq -r '.recall' metrics.json)" >> $GITHUB_OUTPUT
-          echo "precision=$(jq -r '.precision' metrics.json)" >> $GITHUB_OUTPUT
-          echo "pr_auc=$(jq -r '.pr_auc' metrics.json)" >> $GITHUB_OUTPUT
+          RECALL=$(jq -r '.recall' metrics.json)
+          PRECISION=$(jq -r '.precision' metrics.json)
+          PR_AUC=$(jq -r '.pr_auc' metrics.json)
+          F1=$(jq -r '.f1' metrics.json)
+          ROC_AUC=$(jq -r '.roc_auc' metrics.json)
+  
+          echo "recall=$RECALL" >> $GITHUB_OUTPUT
+          echo "precision=$PRECISION" >> $GITHUB_OUTPUT
+          echo "pr_auc=$PR_AUC" >> $GITHUB_OUTPUT
+          echo "f1=$F1" >> $GITHUB_OUTPUT
+  
+          echo "Evaluation Results:"
+          echo "  - Recall: $RECALL"
+          echo "  - Precision: $PRECISION"
+          echo "  - F1 Score: $F1"
+          echo "  - PR-AUC: $PR_AUC"
+          echo "  - ROC-AUC: $ROC_AUC"
 
       - name: Quality Gates
         id: quality_check
@@ -246,8 +272,22 @@ jobs:
       - uses: actions/checkout@v4
       - name: Package
         run: |
-          python src/deploy/package_model.py --mlflow-run-id ${{ needs.train.outputs.run_id }}
-          aws s3 cp model.tar.gz s3://${{ secrets.S3_MODEL_BUCKET }}/models/${{ needs.train.outputs.run_id }}.tar.gz
+          echo "Packaging model ..."
+  
+          MLFLOW_URI="databricks"
+  
+          python src/deploy/package_model.py \
+            --mlflow-run-id ${{ steps.train.outputs.run_id }} \
+            --output-file model.tar.gz \
+            --mlflow-tracking-uri $MLFLOW_URI
+  
+          RUN_ID=${{ steps.train.outputs.run_id }}
+          MODEL_URI="s3://${{ env.S3_MODEL_BUCKET }}/models/${RUN_ID}.tar.gz"
+  
+          aws s3 cp model.tar.gz "$MODEL_URI"
+  
+          echo "model_uri=$MODEL_URI" >> $GITHUB_OUTPUT
+          echo "Model packaged and uploaded to $MODEL_URI"
 
   summary:
     needs: [ train, evaluate ]
