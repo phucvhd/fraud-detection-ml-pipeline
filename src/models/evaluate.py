@@ -59,25 +59,20 @@ def evaluate_model(model_run_id: str, data_path: str,
     print(f"Applying feature engineering...")
 
     if config["features"]["time_features"]["enabled"]:
-        if config["features"]["time_features"].get("hour_of_day", False):
-            data_x_test["hour_of_day"] = (data_x_test["Time"] / 3600) % 24
+        data_x_test["hour_of_day"] = (data_x_test["Time"] / 3600) % 24
 
-        if config["features"]["time_features"].get("day_period", False):
-            hour = (data_x_test["Time"] / 3600) % 24
-            data_x_test["day_period"] = pd.cut(hour, bins=[0, 6, 12, 18, 24],
-                                          labels=[0, 1, 2, 3], include_lowest=True)
+        hour = (data_x_test["Time"] / 3600) % 24
+        data_x_test["day_period"] = pd.cut(hour, bins=[0, 6, 12, 18, 24],
+                                      labels=[0, 1, 2, 3], include_lowest=True)
 
-        if config["features"]["time_features"].get("time_since_start", False):
-            data_x_test["time_since_start"] = data_x_test["Time"] / df["Time"].max()
+        data_x_test["time_since_start"] = data_x_test["Time"] / df_test["Time"].max()
 
     if config["features"]["amount_features"]["enabled"]:
-        if config["features"]["amount_features"].get("log_transform", False):
-            data_x_test["log_amount"] = np.log1p(data_x_test["Amount"])
+        data_x_test["log_amount"] = np.log1p(data_x_test["Amount"])
 
-        if config["features"]["amount_features"].get("standardize", False):
-            scaler = StandardScaler()
-            scaler.fit(df_test[["Amount"]])
-            data_x_test["amount_scaled"] = scaler.transform(data_x_test[["Amount"]])
+        scaler = StandardScaler()
+        scaler.fit(df_test[["Amount"]])
+        data_x_test["amount_scaled"] = scaler.transform(data_x_test[["Amount"]])
 
     print(f"Features: {data_x_test.shape[1]}")
 
