@@ -154,63 +154,63 @@ jobs:
           RUN_ID=$(cat run_id.txt)
           echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
 
-    evaluate:
-      needs: train
-      runs-on: ubuntu-latest
-      outputs:
-        passed: ${{ steps.quality_check.outputs.passed }}
-        metrics: ${{ steps.eval_step.outputs.metrics }}
-      steps:
-        - uses: actions/checkout@v4
-        - name: Install Dependencies
-          run: pip install -r requirements.txt jq
+  evaluate:
+    needs: train
+    runs-on: ubuntu-latest
+    outputs:
+      passed: ${{ steps.quality_check.outputs.passed }}
+      metrics: ${{ steps.eval_step.outputs.metrics }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Dependencies
+        run: pip install -r requirements.txt jq
 
-        - name: Download Data
-          run: aws s3 cp s3://${{ env.S3_DATA_BUCKET }}/data/creditcard_test.csv ./data/creditcard_test.csv
+      - name: Download Data
+        run: aws s3 cp s3://${{ env.S3_DATA_BUCKET }}/data/creditcard_test.csv ./data/creditcard_test.csv
 
-        - name: Evaluate Model
-          id: eval_step
-          env:
-            DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
-            DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
-          run: |
-            python src/models/evaluate.py \
-              --model-run-id ${{ needs.train.outputs.run_id }} \
-              --data-path ./data/creditcard_test.csv \
-              --output metrics.json
+      - name: Evaluate Model
+        id: eval_step
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+        run: |
+          python src/models/evaluate.py \
+            --model-run-id ${{ needs.train.outputs.run_id }} \
+            --data-path ./data/creditcard_test.csv \
+            --output metrics.json
 
-            # Store metrics in outputs for the Summary job
-            echo "recall=$(jq -r '.recall' metrics.json)" >> $GITHUB_OUTPUT
-            echo "precision=$(jq -r '.precision' metrics.json)" >> $GITHUB_OUTPUT
-            echo "pr_auc=$(jq -r '.pr_auc' metrics.json)" >> $GITHUB_OUTPUT
+          # Store metrics in outputs for the Summary job
+          echo "recall=$(jq -r '.recall' metrics.json)" >> $GITHUB_OUTPUT
+          echo "precision=$(jq -r '.precision' metrics.json)" >> $GITHUB_OUTPUT
+          echo "pr_auc=$(jq -r '.pr_auc' metrics.json)" >> $GITHUB_OUTPUT
 
-        - name: Quality Gates
-          id: quality_check
-          run: |
-            # Your existing bc -l comparison logic here
-            # Using ${{ steps.eval_step.outputs.recall }} etc.
-            echo "passed=true" >> $GITHUB_OUTPUT
+      - name: Quality Gates
+        id: quality_check
+        run: |
+          # Your existing bc -l comparison logic here
+          # Using ${{ steps.eval_step.outputs.recall }} etc.
+          echo "passed=true" >> $GITHUB_OUTPUT
 
-    package:
-      needs: [ train, evaluate ]
-      if: needs.evaluate.outputs.passed == 'true'
-      runs-on: ubuntu-latest
-      steps:
-        - uses: actions/checkout@v4
-        - name: Package
-          run: |
-            python src/deploy/package_model.py --mlflow-run-id ${{ needs.train.outputs.run_id }}
-            aws s3 cp model.tar.gz s3://${{ secrets.S3_MODEL_BUCKET }}/models/${{ needs.train.outputs.run_id }}.tar.gz
+  package:
+    needs: [ train, evaluate ]
+    if: needs.evaluate.outputs.passed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package
+        run: |
+          python src/deploy/package_model.py --mlflow-run-id ${{ needs.train.outputs.run_id }}
+          aws s3 cp model.tar.gz s3://${{ secrets.S3_MODEL_BUCKET }}/models/${{ needs.train.outputs.run_id }}.tar.gz
 
-    summary:
-      needs: [ train, evaluate ]
-      if: always()
-      runs-on: ubuntu-latest
-      steps:
-        - name: Create GitHub Summary
-          run: |
-            echo "## Run Results for ${{ needs.train.outputs.run_id }}" >> $GITHUB_STEP_SUMMARY
-            echo "Recall: ${{ needs.evaluate.outputs.recall }}" >> $GITHUB_STEP_SUMMARY
+  summary:
+    needs: [ train, evaluate ]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create GitHub Summary
+        run: |
+          echo "## Run Results for ${{ needs.train.outputs.run_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "Recall: ${{ needs.evaluate.outputs.recall }}" >> $GITHUB_STEP_SUMMARY
 
 #  train-model:
 #    runs-on: ubuntu-latest
