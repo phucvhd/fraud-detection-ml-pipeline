@@ -12,6 +12,9 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import RandomizedSearchCV, TimeSeriesSplit
 from sklearn.metrics import recall_score, precision_score, f1_score, precision_recall_curve, auc
 import sys
+
+from sklearn.preprocessing import StandardScaler
+
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 from src.utils.config_manager import load_config, get_mlflow_tracking_uri
 
@@ -32,37 +35,33 @@ class HPOTuner:
 
         return X, y
 
-    def feature_engineering(self):
+    def feature_engineering(self, data_x):
         print(f"Feature Engineering...")
 
         if self.config['features']['time_features']['enabled']:
             print("Adding time-based features...")
 
-            if config['features']['time_features'].get('hour_of_day', False):
-                data_x['hour_of_day'] = (data_x['Time'] / 3600) % 24
-                print("hour_of_day")
+            data_x['hour_of_day'] = (data_x['Time'] / 3600) % 24
+            print("hour_of_day")
 
-            if config['features']['time_features'].get('day_period', False):
-                hour = (data_x['Time'] / 3600) % 24
-                data_x['day_period'] = pd.cut(hour, bins=[0, 6, 12, 18, 24],
-                                              labels=[0, 1, 2, 3], include_lowest=True)
-                print("day_period")
+            hour = (data_x['Time'] / 3600) % 24
+            data_x['day_period'] = pd.cut(hour, bins=[0, 6, 12, 18, 24], labels=[0, 1, 2, 3], include_lowest=True)
+            print("day_period")
 
-            if config['features']['time_features'].get('time_since_start', False):
-                data_x['time_since_start'] = data_x['Time'] / data_x['Time'].max()
-                print("time_since_start")
+            data_x['time_since_start'] = data_x['Time'] / data_x['Time'].max()
+            print("time_since_start")
 
-        if config['features']['amount_features']['enabled']:
+        if self.config['features']['amount_features']['enabled']:
             print("Adding amount-based features...")
 
-            if config['features']['amount_features'].get('log_transform', False):
-                data_x['log_amount'] = np.log1p(data_x['Amount'])
-                print("log_amount")
+            data_x['log_amount'] = np.log1p(data_x['Amount'])
+            print("log_amount")
 
-            if config['features']['amount_features'].get('standardize', False):
-                scaler = StandardScaler()
-                data_x['amount_scaled'] = scaler.fit_transform(data_x[['Amount']])
-                print("amount_scaled")
+            scaler = StandardScaler()
+            data_x['amount_scaled'] = scaler.fit_transform(data_x[['Amount']])
+            print("amount_scaled")
+
+        return data_x
 
     def get_param_grid(self):
         rf_dist = self.config['tuner']['param_dist']['random_forest']
@@ -74,6 +73,7 @@ class HPOTuner:
 
     def run(self):
         X, y = self.load_and_prep_data()
+        X = self.feature_engineering(X)
         param_grid = self.get_param_grid()
 
         experiment_name = self.config['experiment']['name']

@@ -4,15 +4,9 @@ experiment:
 features:
   time_features:
     enabled: true
-    hour_of_day: true
-    day_period: true
-    time_since_start: true
 
   amount_features:
     enabled: true
-    log_transform: true
-    binning: false
-    standardize: true
 
 tuner:
   strategy: "random_search"
