@@ -49,14 +49,24 @@ on:
           - log2
           - None
 
+      class_weight:
+        description: 'Manual class weights'
+        required: false
+        default: '{0: 1, 1: 1}'
+
       bootstrap:
         description: 'Whether to use bootstrap sampling'
         type: boolean
         required: false
         default: true
 
+      enable_smote:
+        description: 'Apply SMOTE'
+        type: boolean
+        default: false
+
       smote_sampling_strategy:
-        description: 'SMOTE sampling strategy (0.0-1.0, target ratio minority/majority)'
+        description: 'SMOTE sampling strategy'
         required: false
         default: '0.5'
 
@@ -139,6 +149,43 @@ jobs:
 
       - name: Download Data
         run: aws s3 cp s3://${{ env.S3_DATA_BUCKET }}/data/creditcard.csv ./data/creditcard.csv
+
+      - name: Install yq
+        run: sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq && sudo chmod +x /usr/bin/yq
+
+      - name: Prepare Config
+        run: |
+          cp config/train_config.yaml config/override_config.yaml
+          
+          yq -i ".experiment.name = \"${{ github.event.inputs.experiment_name || format('auto-run-{0}', github.run_number) }}\"" config/override_config.yaml
+          yq -i ".data.sample_size = ${{ github.event.inputs.use_sample_data == 'true' && github.event.inputs.sample_size || 'null' }}" config/override_config.yaml
+          
+          yq -i ".model.params.n_estimators = ${{ github.event.inputs.n_estimators || '300' }}" config/override_config.yaml
+          yq -i ".model.params.max_depth = ${{ github.event.inputs.max_depth == 'null' && 'null' || github.event.inputs.max_depth || '15' }}" config/override_config.yaml
+          yq -i ".model.params.min_samples_split = ${{ github.event.inputs.min_samples_split || '10' }}" config/override_config.yaml
+          yq -i ".model.params.min_samples_leaf = ${{ github.event.inputs.min_samples_leaf || '5' }}" config/override_config.yaml
+          yq -i ".model.params.max_features = \"${{ github.event.inputs.max_features || 'sqrt' }}\"" config/override_config.yaml
+          yq -i ".model.params.bootstrap = ${{ github.event.inputs.bootstrap || 'true' }}" config/override_config.yaml
+          
+          yq -i ".features.time_features.enabled = ${{ github.event.inputs.enable_time_features || 'true' }}" config/override_config.yaml
+          yq -i ".features.amount_features.enabled = ${{ github.event.inputs.enable_amount_features || 'true' }}" config/override_config.yaml
+          
+          yq -i ".imbalance.method = \"smote\"" config/override_config.yaml
+          yq -i ".imbalance.smote.enabled = ${{ github.event.inputs.enable_smote == 'true' || 'false' }}" config/override_config.yaml
+          yq -i ".imbalance.smote.sampling_strategy = ${{ github.event.inputs.smote_sampling_strategy || '0.5' }}" config/override_config.yaml
+          yq -i ".imbalance.smote.k_neighbors = ${{ github.event.inputs.smote_k_neighbors || '5' }}" config/override_config.yaml
+          yq -i ".imbalance.class_weight = ${{ github.event.inputs.class_weight || 'null' }}" config/override_config.yaml
+          
+          yq -i ".quality_gates.metrics.recall.threshold = ${{ github.event.inputs.min_recall || '0.90' }}" config/override_config.yaml
+          yq -i ".quality_gates.metrics.precision.threshold = ${{ github.event.inputs.min_precision || '0.85' }}" config/override_config.yaml
+          yq -i ".quality_gates.metrics.pr_auc.threshold = ${{ github.event.inputs.min_pr_auc || '0.95' }}" config/override_config.yaml
+          yq -i ".quality_gates.experimental_mode = ${{ github.event.inputs.skip_quality_gates || 'false' }}" config/override_config.yaml
+
+      - name: Upload Config Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: finalized-config
+          path: config/override_config.yaml
 
       - name: Train Model
         id: train_step
