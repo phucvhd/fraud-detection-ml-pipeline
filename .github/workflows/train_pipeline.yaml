@@ -244,8 +244,8 @@ jobs:
           MLFLOW_URI="databricks"
           
           python src/models/evaluate.py \
-          --model-run-id ${{ steps.train.outputs.run_id }} \
-          --data-path ./data/creditcard.csv \
+          --model-run-id ${{ needs.train.outputs.run_id }} \
+          --data-path ./data/creditcard_test.csv \
           --config config/train_config.yaml \
           --override-config config/override_config.yaml \
           --output metrics.json \
@@ -293,11 +293,11 @@ jobs:
           MLFLOW_URI="databricks"
   
           python src/deploy/package_model.py \
-            --mlflow-run-id ${{ steps.train.outputs.run_id }} \
+            --mlflow-run-id ${{ needs.train.outputs.run_id }} \
             --output-file model.tar.gz \
             --mlflow-tracking-uri $MLFLOW_URI
   
-          RUN_ID=${{ steps.train.outputs.run_id }}
+          RUN_ID=${{ needs.train.outputs.run_id }}
           MODEL_URI="s3://${{ env.S3_MODEL_BUCKET }}/models/${RUN_ID}.tar.gz"
   
           aws s3 cp model.tar.gz "$MODEL_URI"
