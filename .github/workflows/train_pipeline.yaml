@@ -192,6 +192,7 @@ jobs:
         env:
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          DATABRICKS_USER: ${{ secrets.DATABRICKS_USER }}
         run: |
           echo "Starting training..."
 
@@ -268,6 +269,10 @@ jobs:
     needs: [ train, evaluate ]
     if: needs.evaluate.outputs.passed == 'true'
     runs-on: ubuntu-latest
+    env:
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+      DATABRICKS_USER: ${{ secrets.DATABRICKS_USER }}
     steps:
       - uses: actions/checkout@v4
       - name: Package
