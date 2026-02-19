@@ -81,16 +81,16 @@ def train_model(data_path: str, base_config_path: str,
 
     print(f"Total features: {data_x.shape[1]}")
 
-    print(f"Splitting data...")
-    data_x_train, data_x_test, y_train, y_test = train_test_split(
-        data_x, y,
-        test_size=config['data']['splits']['test_size'],
-        stratify=y if config['data']['splits']['stratify'] else None,
-        random_state=config['data']['random_state']
-    )
-
-    print(f"Training set: {len(data_x_train):,} samples ({y_train.sum():,} fraud)")
-    print(f"Test set: {len(data_x_test):,} samples ({y_test.sum():,} fraud)")
+    # print(f"Splitting data...")
+    # data_x_train, data_x_test, y_train, y_test = train_test_split(
+    #     data_x, y,
+    #     test_size=config['data']['splits']['test_size'],
+    #     stratify=y if config['data']['splits']['stratify'] else None,
+    #     random_state=config['data']['random_state']
+    # )
+    #
+    # print(f"Training set: {len(data_x_train):,} samples ({y_train.sum():,} fraud)")
+    # print(f"Test set: {len(data_x_test):,} samples ({y_test.sum():,} fraud)")
 
     print(f"Applying SMOTE...")
     smote_config = config['imbalance']['smote']
@@ -103,9 +103,9 @@ def train_model(data_path: str, base_config_path: str,
 
     print(f"Sampling strategy: {smote_config['sampling_strategy']}")
     print(f"K neighbors: {smote_config['k_neighbors']}")
-    print(f"Before SMOTE: {len(data_x_train):,} samples ({y_train.sum():,} fraud)")
+    print(f"Before SMOTE: {len(data_x):,} samples ({y.sum():,} fraud)")
 
-    data_x_train_resampled, y_train_resampled = smote.fit_resample(data_x_train, y_train)
+    data_x_train_resampled, y_train_resampled = smote.fit_resample(data_x, y)
     y_train_resampled = y_train_resampled.astype(int)
 
     print(f"After SMOTE: {len(data_x_train_resampled):,} samples ({y_train_resampled.sum():,} fraud)")
@@ -160,7 +160,7 @@ def train_model(data_path: str, base_config_path: str,
 
         if config['mlflow'].get('log_feature_importance', False):
             feature_importance = pd.DataFrame({
-                'feature': data_x_train.columns,
+                'feature': data_x.columns,
                 'importance': model.feature_importances_
             }).sort_values('importance', ascending=False)
 
@@ -170,22 +170,6 @@ def train_model(data_path: str, base_config_path: str,
 
             feature_importance.to_csv('feature_importance.csv', index=False)
             mlflow.log_artifact('feature_importance.csv')
-
-        print(f"Quick evaluation on test set...")
-        y_pred = model.predict(data_x_test)
-        y_pred_proba = model.predict_proba(data_x_test)[:, 1]
-
-        from sklearn.metrics import recall_score, precision_score, f1_score
-
-        test_recall = recall_score(y_test, y_pred)
-        test_precision = precision_score(y_test, y_pred)
-        test_f1 = f1_score(y_test, y_pred)
-
-        print(f"Recall: {test_recall:.4f}")
-        print(f"Precision: {test_precision:.4f}")
-        print(f"F1 Score: {test_f1:.4f}")
-
-        print(classification_report(y_test, y_pred, target_names=['Normal', 'Fraud']))
 
         if config['mlflow']['log_models']:
             mlflow.sklearn.log_model(model, "model")
