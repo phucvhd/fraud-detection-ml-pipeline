@@ -216,7 +216,7 @@ jobs:
     needs: train
     runs-on: ubuntu-latest
     outputs:
-      passed: ${{ steps.quality_check.outputs.passed }}
+      passed: ${{ steps.eval_step.outputs.passed }}
       metrics: ${{ steps.eval_step.outputs.metrics }}
     steps:
       - uses: actions/checkout@v4
@@ -272,9 +272,15 @@ jobs:
       - name: Quality Gates
         id: quality_check
         run: |
-          # Your existing bc -l comparison logic here
-          # Using ${{ steps.eval_step.outputs.recall }} etc.
-          echo "passed=true" >> $GITHUB_OUTPUT
+          # evaluate.py enforces the thresholds in config/train_config.yaml and
+          # emits passed=true|false. Surface the real result here.
+          PASSED="${{ steps.eval_step.outputs.passed }}"
+          echo "Quality gates result: $PASSED"
+          if [ "$PASSED" != "true" ]; then
+            echo "Quality gates FAILED — model will not be packaged."
+            exit 1
+          fi
+          echo "Quality gates PASSED."
 
   package:
     needs: [ train, evaluate ]

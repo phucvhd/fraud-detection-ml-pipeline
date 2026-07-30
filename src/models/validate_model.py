@@ -11,35 +11,12 @@ from sklearn.metrics import (
     precision_recall_curve, roc_curve
 )
 import matplotlib.pyplot as plt
+import joblib
 import sys
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 from src.utils.config_manager import get_mlflow_tracking_uri
-
-def apply_feature_engineering(data_x, enable_time_features=True, enable_amount_features=True):
-    print("Applying feature engineering...")
-
-    if enable_time_features:
-        print("Adding time-based features...")
-        data_x["hour_of_day"] = (data_x["Time"] / 3600) % 24
-
-        hour = (data_x["Time"] / 3600) % 24
-        data_x["day_period"] = pd.cut(hour, bins=[0, 6, 12, 18, 24],
-                                 labels=[0, 1, 2, 3], include_lowest=True)
-
-        data_x["time_since_start"] = data_x["Time"] / data_x["Time"].max()
-        print("hour_of_day, day_period, time_since_start")
-
-    if enable_amount_features:
-        print("Adding amount-based features...")
-        data_x["log_amount"] = np.log1p(data_x["Amount"])
-
-        from sklearn.preprocessing import StandardScaler
-        scaler = StandardScaler()
-        data_x["amount_scaled"] = scaler.fit_transform(data_x[["Amount"]])
-        print("log_amount, amount_scaled")
-
-    return data_x
+from src.features.feature_engineering import engineer_features
 
 
 def validate_model(model_run_id: str, test_data_path: str,
@@ -74,6 +51,13 @@ def validate_model(model_run_id: str, test_data_path: str,
         print(f"- Verify model exists in MLflow")
         raise
 
+    print(f"Loading preprocessor from MLflow...")
+    preprocessor_path = mlflow.artifacts.download_artifacts(
+        run_id=model_run_id, artifact_path="preprocessor/preprocessor.joblib"
+    )
+    preprocessor = joblib.load(preprocessor_path)
+    print("Preprocessor loaded")
+
     print(f"Loading test data (NO SPLITTING - using entire dataset)...")
     df_test = pd.read_csv(test_data_path)
 
@@ -91,7 +75,11 @@ def validate_model(model_run_id: str, test_data_path: str,
     print(f"Fraud cases: {fraud_count:,} ({fraud_rate:.3f}%)")
     print(f"Normal cases: {(test_data_y == 0).sum():,} ({100 - fraud_rate:.3f}%)")
 
-    data_x_test = apply_feature_engineering(data_x_test, enable_time_features, enable_amount_features)
+    # Reuse the training-time preprocessor so validation reflects real serving
+    # behaviour. The enabled feature groups come from the preprocessor itself;
+    # the CLI flags are kept only for backward compatibility.
+    print("Applying feature engineering (reusing fitted preprocessor)...")
+    data_x_test, _ = engineer_features(data_x_test, preprocessor=preprocessor, fit=False)
 
     print(f"Total features after engineering: {data_x_test.shape[1]}")
 

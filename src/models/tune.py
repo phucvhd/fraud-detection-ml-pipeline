@@ -13,10 +13,9 @@ from sklearn.model_selection import RandomizedSearchCV, TimeSeriesSplit
 from sklearn.metrics import recall_score, precision_score, f1_score, precision_recall_curve, auc
 import sys
 
-from sklearn.preprocessing import StandardScaler
-
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 from src.utils.config_manager import load_config, get_mlflow_tracking_uri
+from src.features.feature_engineering import engineer_features
 
 
 class HPOTuner:
@@ -28,7 +27,6 @@ class HPOTuner:
 
     def load_and_prep_data(self):
         df = pd.read_csv(self.data_path)
-        df['hour_of_day'] = (df['Time'] // 3600) % 24
 
         X = df.drop(['Class'], axis=1)
         y = df['Class']
@@ -37,30 +35,9 @@ class HPOTuner:
 
     def feature_engineering(self, data_x):
         print(f"Feature Engineering...")
-
-        if self.config['features']['time_features']['enabled']:
-            print("Adding time-based features...")
-
-            data_x['hour_of_day'] = (data_x['Time'] / 3600) % 24
-            print("hour_of_day")
-
-            hour = (data_x['Time'] / 3600) % 24
-            data_x['day_period'] = pd.cut(hour, bins=[0, 6, 12, 18, 24], labels=[0, 1, 2, 3], include_lowest=True)
-            print("day_period")
-
-            data_x['time_since_start'] = data_x['Time'] / data_x['Time'].max()
-            print("time_since_start")
-
-        if self.config['features']['amount_features']['enabled']:
-            print("Adding amount-based features...")
-
-            data_x['log_amount'] = np.log1p(data_x['Amount'])
-            print("log_amount")
-
-            scaler = StandardScaler()
-            data_x['amount_scaled'] = scaler.fit_transform(data_x[['Amount']])
-            print("amount_scaled")
-
+        # Use the shared feature engineering so HPO optimises exactly the feature
+        # set that training and serving produce.
+        data_x, _ = engineer_features(data_x, config=self.config, fit=True)
         return data_x
 
     def get_param_grid(self):
@@ -78,12 +55,15 @@ class HPOTuner:
 
         experiment_name = self.config['experiment']['name']
 
-        if self.mlflow_tracking_uri == "databricks":
+        tracking_uri, uri_source = get_mlflow_tracking_uri(self.mlflow_tracking_uri)
+
+        if tracking_uri == "databricks":
             user_email = os.environ.get('DATABRICKS_USER')
             experiment_name = f"/Users/{user_email}/fraud-detection/{experiment_name}"
             print(f"Using Databricks experiment path: {experiment_name}")
 
-        mlflow.set_tracking_uri(self.mlflow_tracking_uri)
+        print(f"MLflow Tracking: {tracking_uri} from {uri_source}")
+        mlflow.set_tracking_uri(tracking_uri)
         mlflow.set_experiment(experiment_name)
 
         tscv = TimeSeriesSplit(n_splits=self.config['tuner']['cv_splits'])
