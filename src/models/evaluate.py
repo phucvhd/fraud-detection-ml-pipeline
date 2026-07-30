@@ -11,12 +11,12 @@ from sklearn.metrics import (
     precision_recall_curve, roc_curve, ConfusionMatrixDisplay
 )
 import matplotlib.pyplot as plt
+import joblib
 import sys
-
-from sklearn.preprocessing import StandardScaler
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 from src.utils.config_manager import load_config, get_mlflow_tracking_uri
+from src.features.feature_engineering import engineer_features
 
 def evaluate_model(model_run_id: str, data_path: str,
                    base_config_path: str, override_config_path: str,
@@ -44,35 +44,26 @@ def evaluate_model(model_run_id: str, data_path: str,
         print(f"  - Verify model was logged to MLflow")
         raise
 
+    print(f"Loading preprocessor from MLflow...")
+    preprocessor_path = mlflow.artifacts.download_artifacts(
+        run_id=model_run_id, artifact_path="preprocessor/preprocessor.joblib"
+    )
+    preprocessor = joblib.load(preprocessor_path)
+    print("Preprocessor loaded")
+
     print(f"Loading evaluation data...")
     df_test = pd.read_csv(data_path)
 
-    # test_size = int(len(df) * config["data"]["splits"]["test_size"])
-    # df_test = df.tail(test_size)
-
-    data_x_test = df_test.drop("Class", axis=1)
+    raw_x_test = df_test.drop("Class", axis=1)
     data_y_test = df_test["Class"]
 
-    print(f"Test set: {len(data_x_test):,} samples")
+    print(f"Test set: {len(raw_x_test):,} samples")
     print(f"Fraud cases: {data_y_test.sum():,} ({data_y_test.mean() * 100:.3f}%)")
 
-    print(f"Applying feature engineering...")
-
-    if config["features"]["time_features"]["enabled"]:
-        data_x_test["hour_of_day"] = (data_x_test["Time"] / 3600) % 24
-
-        hour = (data_x_test["Time"] / 3600) % 24
-        data_x_test["day_period"] = pd.cut(hour, bins=[0, 6, 12, 18, 24],
-                                      labels=[0, 1, 2, 3], include_lowest=True)
-
-        data_x_test["time_since_start"] = data_x_test["Time"] / df_test["Time"].max()
-
-    if config["features"]["amount_features"]["enabled"]:
-        data_x_test["log_amount"] = np.log1p(data_x_test["Amount"])
-
-        scaler = StandardScaler()
-        scaler.fit(df_test[["Amount"]])
-        data_x_test["amount_scaled"] = scaler.transform(data_x_test[["Amount"]])
+    print(f"Applying feature engineering (reusing fitted preprocessor)...")
+    # Reuse the scaler / time-normaliser fitted at training time — do NOT refit
+    # on the evaluation data, or metrics will not reflect real serving behaviour.
+    data_x_test, _ = engineer_features(raw_x_test, preprocessor=preprocessor, fit=False)
 
     print(f"Features: {data_x_test.shape[1]}")
 
@@ -169,7 +160,7 @@ def evaluate_model(model_run_id: str, data_path: str,
     quality_gates = config["quality_gates"]
 
     if quality_gates.get("experimental_mode", False):
-        print("Edata_xPERIMENTAL MODE: Quality gates skipped")
+        print("EXPERIMENTAL MODE: Quality gates skipped")
         return metrics
 
     print("QUALITY GATES CHECK")

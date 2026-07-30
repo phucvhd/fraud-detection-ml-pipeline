@@ -8,8 +8,13 @@
 .env.*.local
 
 venv/
+.venv/
 env/
 ENV/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
 
 # MLflow
 mlruns/
