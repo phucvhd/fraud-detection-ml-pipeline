@@ -90,17 +90,17 @@ on:
       min_recall:
         description: 'Minimum recall threshold (0.0-1.0)'
         required: false
-        default: '0.90'
+        default: '0.80'
 
       min_precision:
         description: 'Minimum precision threshold (0.0-1.0)'
         required: false
-        default: '0.85'
+        default: '0.80'
 
       min_pr_auc:
         description: 'Minimum PR-AUC threshold (0.0-1.0)'
         required: false
-        default: '0.95'
+        default: '0.85'
 
       skip_quality_gates:
         description: 'Skip quality gates (experimental mode)'
@@ -176,9 +176,9 @@ jobs:
           yq -i ".imbalance.smote.k_neighbors = ${{ github.event.inputs.smote_k_neighbors || '5' }}" config/override_config.yaml
           yq -i ".imbalance.class_weight = ${{ github.event.inputs.class_weight || 'null' }}" config/override_config.yaml
           
-          yq -i ".quality_gates.metrics.recall.threshold = ${{ github.event.inputs.min_recall || '0.90' }}" config/override_config.yaml
-          yq -i ".quality_gates.metrics.precision.threshold = ${{ github.event.inputs.min_precision || '0.85' }}" config/override_config.yaml
-          yq -i ".quality_gates.metrics.pr_auc.threshold = ${{ github.event.inputs.min_pr_auc || '0.95' }}" config/override_config.yaml
+          yq -i ".quality_gates.metrics.recall.threshold = ${{ github.event.inputs.min_recall || '0.80' }}" config/override_config.yaml
+          yq -i ".quality_gates.metrics.precision.threshold = ${{ github.event.inputs.min_precision || '0.80' }}" config/override_config.yaml
+          yq -i ".quality_gates.metrics.pr_auc.threshold = ${{ github.event.inputs.min_pr_auc || '0.85' }}" config/override_config.yaml
           yq -i ".quality_gates.experimental_mode = ${{ github.event.inputs.skip_quality_gates || 'false' }}" config/override_config.yaml
           
           echo "Configuration prepared"

@@ -3,7 +3,7 @@ experiment:
   description: 'Credit card fraud detection using Random Forest'
   tags:
     model_type: 'random_forest'
-    imbalance_method: 'smote'
+    imbalance_method: 'class_weight'
     version: '1.0'
 
 data:
@@ -58,16 +58,16 @@ imbalance:
 quality_gates:
   metrics:
     recall:
-      threshold: 0.90
+      threshold: 0.80
       operator: '>='
     precision:
-      threshold: 0.85
+      threshold: 0.80
       operator: '>='
     pr_auc:
-      threshold: 0.95
+      threshold: 0.85
       operator: '>='
     f1:
-      threshold: 0.87
+      threshold: 0.80
       operator: '>='
 
   experimental_mode: false

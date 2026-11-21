@@ -18,7 +18,7 @@ and natural-language investigation in [`fraud-rag`](../fraud-rag).
           ▼
   ┌──────────────┐   run_id    ┌──────────────┐  passed?   ┌──────────────┐
   │    train     │────────────▶│   evaluate   │───────────▶│   package    │
-  │  (RF+SMOTE)  │             │ quality gates│            │ model.tar.gz │
+  │(RF, weighted)│             │ quality gates│            │ model.tar.gz │
   └──────────────┘             └──────────────┘            └──────┬───────┘
           │                                                       ▼
           ▼                                              s3://.../models/
@@ -73,10 +73,30 @@ override file with `yq` before running.
 ### Quality gates
 
 `evaluate.py` checks metrics against `quality_gates` in the config (defaults:
-recall ≥ 0.90, precision ≥ 0.85, PR-AUC ≥ 0.95, F1 ≥ 0.87) and emits
+recall ≥ 0.80, precision ≥ 0.80, PR-AUC ≥ 0.85, F1 ≥ 0.80) and emits
 `passed=true|false`. The workflow **fails the job and blocks packaging** when the
 gates are not met. Set `quality_gates.experimental_mode: true` (or the
 `skip_quality_gates` workflow input) to bypass gates for experimentation.
+
+The defaults sit a few points below the measured baseline (see *Results*), so
+the gates catch a regression without failing on normal run-to-run variance.
+
+## Results
+
+Baseline with the default config (class-weighted Random Forest, SMOTE off), on a
+stratified 20% hold-out of `creditcard.csv` with preprocessing fitted on the
+training split only:
+
+| Metric | Value |
+|--------|-------|
+| PR-AUC | 0.87 |
+| Precision | 0.85 |
+| Recall | 0.85 (83 of 98 fraud cases caught) |
+
+Earlier versions of this pipeline applied SMOTE and feature scaling to the full
+dataset before splitting, which leaked test information and inflated the
+metrics. That was fixed in `226a51f`; the numbers above come from the fixed
+pipeline.
 
 ## Running locally
 
